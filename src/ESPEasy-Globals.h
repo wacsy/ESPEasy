@@ -55,10 +55,10 @@
 //(512k is NOT finsihed or tested yet as of v2.0.0-dev6)
 
 //build all the normal stable plugins (on by default)
-#define PLUGIN_BUILD_NORMAL
+// #define PLUGIN_BUILD_NORMAL
 
 //build all plugins that are in test stadium
-//#define PLUGIN_BUILD_TESTING
+#define PLUGIN_BUILD_TESTING
 
 //build all plugins that still are being developed and are broken or incomplete
 //#define PLUGIN_BUILD_DEV
