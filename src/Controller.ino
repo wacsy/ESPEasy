@@ -114,7 +114,7 @@ void callback(char *c_topic, byte *b_payload, unsigned int length) {
   // TD-er: This one cannot set the TaskIndex, but that may seem to work out.... hopefully.
   protocolIndex_t ProtocolIndex = getProtocolIndex_from_ControllerIndex(enabledMqttController);
   Scheduler.schedule_mqtt_controller_event_timer(
-    ProtocolIndex, 
+    ProtocolIndex,
     CPlugin::Function::CPLUGIN_PROTOCOL_RECV,
     c_topic, b_payload, length);
 }
@@ -216,6 +216,19 @@ bool MQTTConnect(controllerIndex_t controller_idx)
   addLog(LOG_LEVEL_INFO, log);
 
   updateMQTTclient_connected();
+
+  // Add subscribe for IoT manager ==testing
+  subscribeTo = "cqw/#";
+  parseSystemVariables(subscribeTo, false);
+  MQTTclient.subscribe(subscribeTo.c_str());
+  log  = F("Subscribed to: ");
+  log += subscribeTo;
+  addLog(LOG_LEVEL_INFO, log);
+
+  //===== wacsy ====
+
+  updateMQTTclient_connected();
+
   statusLED(true);
   mqtt_reconnect_count = 0;
 
@@ -386,7 +399,7 @@ bool SourceNeedsStatusUpdate(EventValueSource::Enum eventSource)
     case EventValueSource::Enum::VALUE_SOURCE_WEB_FRONTEND:
       return true;
 
-    default: 
+    default:
       break;
   }
   return false;
@@ -412,7 +425,7 @@ void SendStatus(EventValueSource::Enum source, const String& status)
       serialPrintln(status);
       break;
 
-    default: 
+    default:
       break;
   }
 }

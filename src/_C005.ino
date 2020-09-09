@@ -6,7 +6,7 @@
 
 #define CPLUGIN_005
 #define CPLUGIN_ID_005         5
-#define CPLUGIN_NAME_005       "Home Assistant (openHAB) MQTT"
+#define CPLUGIN_NAME_005       "openHAB MQTT"
 
 String CPlugin_005_pubname;
 bool CPlugin_005_mqtt_retainFlag;
@@ -61,6 +61,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
     case CPlugin::Function::CPLUGIN_PROTOCOL_RECV:
       {
         controllerIndex_t ControllerID = findFirstEnabledControllerWithId(CPLUGIN_ID_005);
+        bool mqtt_retainFlag = CPlugin_005_mqtt_retainFlag;
         if (!validControllerIndex(ControllerID)) {
           // Controller is not enabled.
           break;
@@ -88,6 +89,12 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                 TempEvent.Par3 = 0;
                 validTopic = true;
               }
+            } else {
+              // no sub topic, should be a broadcast message
+              String iot_topic = "cqw/ESPED/config";
+              String iot_payload = "{\"page\": \"Home\",\"pageId\": 1,\"descr\": \"ESPED HART\",\"widget\": \"anydata\",\"topic\": \"cqw/ESPED/heartbeat\",\"after\": \"L\",\"icon\": \"heart-circle-outline\",\"order\": 10}";
+
+              MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
             }
           }
           if (validTopic) {
@@ -126,22 +133,48 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           tmppubname.replace(F("%valname%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
           String value = "";
           // Small optimization so we don't try to copy potentially large strings
+          bool m1, m2, m3;
+          m1 = 0;
+          m2 = 0;
           if (event->sensorType == SENSOR_TYPE_STRING) {
-            MQTTpublish(event->ControllerIndex, tmppubname.c_str(), event->String2.c_str(), mqtt_retainFlag);
+            m1 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), event->String2.c_str(), mqtt_retainFlag);
             value = event->String2.substring(0, 20); // For the log
           } else {
             value = formatUserVarNoCheck(event, x);
-            MQTTpublish(event->ControllerIndex, tmppubname.c_str(), value.c_str(), mqtt_retainFlag);
+            m2 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), value.c_str(), mqtt_retainFlag);
           }
-#ifndef BUILD_NO_DEBUG
+
+          // hard code to publish a message to IoTmanager
+          String iot_topic = "cqw/ESPED/heartbeat/status";
+          String iot_payload = "{\"status\": 16}";
+          m3 = MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+// #ifndef BUILD_NO_DEBUG
           if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
             String log = F("MQTT : ");
             log += tmppubname;
             log += ' ';
             log += value;
+            if (m1) {
+              log += F(" sensor mqtt sent==");
+            } else
+            {
+              log += F(" sensor mqtt fail==");
+            }
+            if (m2) {
+              log += F(" other mqtt sent==");
+            } else
+            {
+              log += F(" other mqtt fail==");
+            }
+            if (m3) {
+              log += F(" status 16 sent==");
+            } else
+            {
+              log += F(" status 16 fail==");
+            }
             addLog(LOG_LEVEL_DEBUG, log);
           }
-#endif
+// #endif
         }
         break;
       }
