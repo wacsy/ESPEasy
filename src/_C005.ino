@@ -91,10 +91,30 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               }
             } else {
               // no sub topic, should be a broadcast message
-              String iot_topic = "cqw/ESPED/config";
-              String iot_payload = "{\"page\": \"Home\",\"pageId\": 1,\"descr\": \"ESPED HART\",\"widget\": \"anydata\",\"topic\": \"cqw/ESPED/heartbeat\",\"after\": \"L\",\"icon\": \"heart-circle-outline\",\"order\": 10}";
-
-              MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+              cmd = event->String2;
+              if (cmd == F("HELLO")) {
+                //got hello broadcast message from app, send widget config on this device
+                String iot_topic = "cqw/";
+                // give the system name to iot topic
+                iot_topic += F("{{name}}");
+                iot_topic += "/config";
+                String iot_payload = "{\"page\": \"Home\",\"pageId\": 1,\"descr\": \"No config.txt in ESP\",\"widget\": \"anydata\",\"topic\": \"cqw/ESPED/heartbeat\",\"after\": \"L\",\"icon\": \"heart-circle-outline\",\"order\": 10}";
+                String fileName;
+                fileName = F("iotconfig.txt");
+                fs::File f = tryOpenFile(fileName, "r");
+                if (f) {
+                  char buffer[256];
+                  while (f.available()) {
+                    int l = f.readBytesUntil('\n', buffer, sizeof(buffer));
+                    buffer[l] = 0;
+                    iot_payload = buffer;
+                    MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+                  }
+                  f.close();
+                } else {
+                  MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+                }
+              }
             }
           }
           if (validTopic) {
@@ -136,18 +156,25 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           bool m1, m2, m3;
           m1 = 0;
           m2 = 0;
+          m3 = 0;
           if (event->sensorType == SENSOR_TYPE_STRING) {
             m1 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), event->String2.c_str(), mqtt_retainFlag);
             value = event->String2.substring(0, 20); // For the log
           } else {
             value = formatUserVarNoCheck(event, x);
             m2 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), value.c_str(), mqtt_retainFlag);
+            String iot_update_topic = "cqw/";
+            iot_update_topic += tmppubname;
+            String iot_update_payload = "{\"status\":";
+            iot_update_payload += value;
+            iot_update_payload += "}";
+            m3 = MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
           }
 
           // hard code to publish a message to IoTmanager
-          String iot_topic = "cqw/ESPED/heartbeat/status";
-          String iot_payload = "{\"status\": 16}";
-          m3 = MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+          // String iot_topic = "cqw/ESPED/heartbeat/status";
+          // String iot_payload = "{\"status\": 16}";
+          // m3 = MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
 // #ifndef BUILD_NO_DEBUG
           if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
             String log = F("MQTT : ");
@@ -167,10 +194,10 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               log += F(" other mqtt fail==");
             }
             if (m3) {
-              log += F(" status 16 sent==");
+              log += F(" iot status sent==");
             } else
             {
-              log += F(" status 16 fail==");
+              log += F(" iot status fail==");
             }
             addLog(LOG_LEVEL_DEBUG, log);
           }
