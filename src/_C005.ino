@@ -74,10 +74,64 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           const int lastindex = event->String1.lastIndexOf('/');
           const String lastPartTopic = event->String1.substring(lastindex + 1);
           if (lastPartTopic == F("cmd")) {
+            //mqtt directly control https://www.letscontrolit.com/wiki/index.php/ESPEasy_Command_Reference
             cmd = event->String2;
             parseCommandString(&TempEvent, cmd);
             TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
             validTopic = true;
+          } else if (lastPartTopic == F("control")) {
+            // iot manager control
+            // format as Topic: cqw/ESPED/stns1b/control payload: 1 or 0 or text
+            // topic information {prefix}/{sysname}/{widget last topic}/control
+            // {widget last topic} should config same as device name
+            // need convert device name to gpio === To Do ===
+            const String infoTopic = event->String1.substring(0, lastindex);
+            const int infoIndex = infoTopic.lastIndexOf('/');
+            const String wigtopic = infoTopic.substring(infoIndex + 1);
+            bool cmd_pulse = false;
+            cmd = F("gpio,");
+
+            if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
+
+              String log = F("MQTT wigtopic : ");
+              log += wigtopic;
+
+              addLog(LOG_LEVEL_DEBUG, log);
+              log = F("info : ");
+              log += infoTopic;
+
+              addLog(LOG_LEVEL_DEBUG, log);
+              log = F("index : ");
+              log += String(infoIndex);
+
+              addLog(LOG_LEVEL_DEBUG, log);
+            }
+            // === todo wigtopic name convert to gpio (from file?)
+            {
+              if (wigtopic == F("StudyDeskLight")) {
+                  cmd += F("14,");
+              } else if (wigtopic == F("StudyExt")) {
+                  cmd += F("12,");
+              } else if (wigtopic == F("StudyTV")) {
+                  cmd += F("16,");
+              } else if (wigtopic == F("StudyNAS")) {
+                  cmd += F("5,");
+              } else if (wigtopic == F("NasSwitch")) {
+                  //Pulse,14,1,500
+                  cmd = F("Pulse,3,1,300");
+                  cmd_pulse = true;
+              } else if (wigtopic == F("LivingEnt")) {
+                  cmd += F("4,");
+              }
+            }
+            // add control value (e.g. 1 or 0) to end cmd
+            if (!(cmd_pulse)){
+              cmd += event->String2;
+            }
+            parseCommandString(&TempEvent, cmd);
+            TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
+            validTopic = true;
+
           } else {
             if (lastindex > 0) {
               // Topic has at least one separator
@@ -96,8 +150,9 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                 //got hello broadcast message from app, send widget config on this device
                 String iot_topic = "cqw/";
                 // give the system name to iot topic
-                iot_topic += F("{{name}}");
+                iot_topic += F("%sysname%");
                 iot_topic += "/config";
+                parseSystemVariables(iot_topic, false);
                 String iot_payload = "{\"page\": \"Home\",\"pageId\": 1,\"descr\": \"No config.txt in ESP\",\"widget\": \"anydata\",\"topic\": \"cqw/ESPED/heartbeat\",\"after\": \"L\",\"icon\": \"heart-circle-outline\",\"order\": 10}";
                 String fileName;
                 fileName = F("iotconfig.txt");
@@ -111,6 +166,18 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                     MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
                   }
                   f.close();
+                  // update current gpio status
+                  for (taskIndex_t task = 0; task < TASKS_MAX; task++)
+                  {
+                    byte x = 0;
+                    String value = formatUserVarNoCheck(task, x);
+                    String iot_update_topic = "cqw/";
+                    iot_update_topic += "ESPED/testingValues";
+                    String iot_update_payload = "{\"status\":";
+                    iot_update_payload += value;
+                    iot_update_payload += "}";
+                    MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
+                  }
                 } else {
                   MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
                 }
@@ -124,6 +191,16 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               eventQueue.add(parseStringToEnd(cmd, 2));
             } else if (!PluginCall(PLUGIN_WRITE, &TempEvent, cmd)) {
               remoteConfig(&TempEvent, cmd);
+            }
+
+            if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
+              String log = F("cmd Rec : ");
+              log += cmd;
+              addLog(LOG_LEVEL_DEBUG, log);
+
+              log = F("Ma: ");
+              log += command;
+              addLog(LOG_LEVEL_DEBUG, log);
             }
           }
         }
@@ -163,6 +240,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           } else {
             value = formatUserVarNoCheck(event, x);
             m2 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), value.c_str(), mqtt_retainFlag);
+            // report status to IoT manager once a status updated for a task (device)
             String iot_update_topic = "cqw/";
             iot_update_topic += tmppubname;
             String iot_update_payload = "{\"status\":";
