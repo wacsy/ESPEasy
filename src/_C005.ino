@@ -169,14 +169,31 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                   // update current gpio status
                   for (taskIndex_t task = 0; task < TASKS_MAX; task++)
                   {
-                    byte x = 0;
-                    String value = formatUserVarNoCheck(task, x);
-                    String iot_update_topic = "cqw/";
-                    iot_update_topic += "ESPED/testingValues";
-                    String iot_update_payload = "{\"status\":";
-                    iot_update_payload += value;
-                    iot_update_payload += "}";
-                    MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
+                    if (Settings.TaskDeviceEnabled[task])
+                    {
+                      LoadTaskSettings(task);
+                      const deviceIndex_t DeviceIndex = getDeviceIndex_from_TaskIndex(task);
+                      byte valueCount = getValueCountFromSensorType(Device[DeviceIndex].VType);
+
+                      String deviceName = ExtraTaskSettings.TaskDeviceName;
+                      
+                      for (byte x = 0; x < valueCount; x++) {
+                        String value = formatUserVarNoCheck(task, x);
+                        String iot_update_topic = iot_topic;
+                        iot_update_topic.replace(F("config"), deviceName);
+                        if (valueCount == 1) {
+                          iot_update_topic += "/{{takvalue}}";
+                        } else {
+                          iot_update_topic += "A{{takvalue}}/status";
+                        }
+                        iot_update_topic.replace(F("{{takvalue}}"), ExtraTaskSettings.TaskDeviceValueNames[x]);
+
+                        String iot_update_payload = "{\"status\":";
+                        iot_update_payload += value;
+                        iot_update_payload += "}";
+                        MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
+                      }
+                    }
                   }
                 } else {
                   MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
@@ -243,6 +260,14 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
             // report status to IoT manager once a status updated for a task (device)
             String iot_update_topic = "cqw/";
             iot_update_topic += tmppubname;
+
+            if (valueCount != 1) {
+              const int lastindex = iot_update_topic.lastIndexOf('/');
+              iot_update_topic[lastindex] = 'A';
+              iot_update_topic += "/status";
+            }
+            iot_update_topic.replace(F("{{takvalue}}"), ExtraTaskSettings.TaskDeviceValueNames[x]);
+
             String iot_update_payload = "{\"status\":";
             iot_update_payload += value;
             iot_update_payload += "}";
