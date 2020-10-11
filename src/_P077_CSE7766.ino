@@ -180,7 +180,7 @@ boolean Plugin_077(byte function, struct EventStruct *event, String &string) {
   switch (function) {
   case PLUGIN_DEVICE_ADD: {
     Device[++deviceCount].Number = PLUGIN_ID_077;
-    Device[deviceCount].VType = SENSOR_TYPE_QUAD;
+    Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_QUAD;
     Device[deviceCount].Ports = 0;
     Device[deviceCount].PullUpOption = false;
     Device[deviceCount].InverseLogicOption = false;
@@ -231,12 +231,6 @@ boolean Plugin_077(byte function, struct EventStruct *event, String &string) {
     ;
     PCONFIG(1) = getFormItemInt(F("p077_IRef"));
     PCONFIG(2) = getFormItemInt(F("p077_PRef"));
-    success = true;
-    break;
-  }
-
-  case PLUGIN_EXIT: {
-    clearPluginTaskData(event->TaskIndex);
     success = true;
     break;
   }

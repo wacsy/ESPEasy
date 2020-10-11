@@ -8,6 +8,8 @@
 #include "src/Globals/Plugins.h"
 #include "src/Globals/Settings.h"
 #include "src/Globals/SecuritySettings.h"
+#include "src/Helpers/Misc.h"
+#include "src/Helpers/StringParser.h"
 
 
 PluginTaskData_base *Plugin_task_data[TASKS_MAX] = { nullptr, };
@@ -127,4 +129,23 @@ bool pluginOptionalTaskIndexArgumentMatch(taskIndex_t taskIndex, const String& s
     return true;
   }
   return found_taskIndex == taskIndex;
+}
+
+int getValueCountForTask(taskIndex_t   taskIndex) {
+  struct EventStruct TempEvent(taskIndex);
+  String dummy;
+  PluginCall(PLUGIN_GET_DEVICEVALUECOUNT, &TempEvent, dummy);
+  return TempEvent.Par1;
+}
+
+int checkDeviceVTypeForTask(struct EventStruct* event) {
+  if (event->sensorType == Sensor_VType::SENSOR_TYPE_NOT_SET) {
+    if (validTaskIndex(event->TaskIndex)) {
+      String dummy;
+      if (PluginCall(PLUGIN_GET_DEVICEVTYPE, event, dummy)) {
+        return event->idx; // pconfig_index
+      }
+    }
+  }
+  return -1;
 }

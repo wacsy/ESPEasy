@@ -9,7 +9,7 @@
 #define CPLUGIN_NAME_005       "openHAB MQTT"
 
 String CPlugin_005_pubname;
-bool CPlugin_005_mqtt_retainFlag;
+bool CPlugin_005_mqtt_retainFlag = false;
 
 
 bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& string)
@@ -68,8 +68,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
         } else {
           // FIXME TD-er: Command is not parsed for template arguments.
           String cmd;
-          struct EventStruct TempEvent;
-          TempEvent.TaskIndex = event->TaskIndex;
+          struct EventStruct TempEvent(event->TaskIndex);
           bool validTopic = false;
           const int lastindex = event->String1.lastIndexOf('/');
           const String lastPartTopic = event->String1.substring(lastindex + 1);
@@ -229,14 +228,10 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
         String pubname = CPlugin_005_pubname;
         bool mqtt_retainFlag = CPlugin_005_mqtt_retainFlag;
 
-        if (ExtraTaskSettings.TaskIndex != event->TaskIndex) {
-          String dummy;
-          PluginCall(PLUGIN_GET_DEVICEVALUENAMES, event, dummy);
-        }
-
+        LoadTaskSettings(event->TaskIndex);
         parseControllerVariables(pubname, event, false);
 
-        byte valueCount = getValueCountFromSensorType(event->sensorType);
+        byte valueCount = getValueCountForTask(event->TaskIndex);
         for (byte x = 0; x < valueCount; x++)
         {
           //MFD: skip publishing for values with empty labels (removes unnecessary publishing of unwanted values)
@@ -251,7 +246,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           m1 = 0;
           m2 = 0;
           m3 = 0;
-          if (event->sensorType == SENSOR_TYPE_STRING) {
+          if (event->sensorType == Sensor_VType::SENSOR_TYPE_STRING) {
             m1 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), event->String2.c_str(), mqtt_retainFlag);
             value = event->String2.substring(0, 20); // For the log
           } else {

@@ -138,7 +138,7 @@ boolean Plugin_089(byte function, struct EventStruct *event, String& string)
   {
     Device[++deviceCount].Number = PLUGIN_ID_089;
     Device[deviceCount].Type = DEVICE_TYPE_DUMMY;
-    Device[deviceCount].VType = DEVICE_TYPE_SINGLE;
+    Device[deviceCount].VType = Sensor_VType::SENSOR_TYPE_SINGLE;
     Device[deviceCount].Ports = 0;
     Device[deviceCount].ValueCount = 1;
     Device[deviceCount].PullUpOption = false;
@@ -187,12 +187,6 @@ boolean Plugin_089(byte function, struct EventStruct *event, String& string)
     initPluginTaskData(event->TaskIndex, new (std::nothrow) P089_data_struct());
     UserVar[event->BaseVarIndex] = 0;
     success = true;
-    break;
-  }
-
-  case PLUGIN_EXIT:
-  {
-    clearPluginTaskData(event->TaskIndex);
     break;
   }
 

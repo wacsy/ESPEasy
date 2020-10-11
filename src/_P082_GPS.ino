@@ -84,13 +84,13 @@ struct P082_data_struct : public PluginTaskData_base {
     }
   }
 
-  bool init(const int16_t serial_rx, const int16_t serial_tx) {
+  bool init(ESPEasySerialPort port, const int16_t serial_rx, const int16_t serial_tx) {
     if (serial_rx < 0) {
       return false;
     }
     reset();
     gps             = new (std::nothrow) TinyGPSPlus();
-    P082_easySerial = new (std::nothrow) ESPeasySerial(serial_rx, serial_tx);
+    P082_easySerial = new (std::nothrow) ESPeasySerial(port, serial_rx, serial_tx);
     if (P082_easySerial != nullptr) {
       P082_easySerial->begin(9600);
     }
@@ -231,7 +231,7 @@ boolean Plugin_082(byte function, struct EventStruct *event, String& string) {
     case PLUGIN_DEVICE_ADD: {
       Device[++deviceCount].Number           = PLUGIN_ID_082;
       Device[deviceCount].Type               = DEVICE_TYPE_SERIAL_PLUS1;
-      Device[deviceCount].VType              = SENSOR_TYPE_QUAD;
+      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_QUAD;
       Device[deviceCount].Ports              = 0;
       Device[deviceCount].PullUpOption       = false;
       Device[deviceCount].InverseLogicOption = false;
@@ -318,7 +318,6 @@ boolean Plugin_082(byte function, struct EventStruct *event, String& string) {
     }
 
     case PLUGIN_WEBFORM_LOAD: {
-      serialHelper_webformLoad(event);
 
       /*
          P082_data_struct *P082_data =
@@ -373,7 +372,6 @@ boolean Plugin_082(byte function, struct EventStruct *event, String& string) {
     }
 
     case PLUGIN_WEBFORM_SAVE: {
-      serialHelper_webformSave(event);
       P082_TIMEOUT  = getFormItemInt(P082_TIMEOUT_LABEL);
       P082_DISTANCE = getFormItemInt(P082_DISTANCE_LABEL);
 
@@ -392,6 +390,7 @@ boolean Plugin_082(byte function, struct EventStruct *event, String& string) {
       if (P082_TIMEOUT < 100) {
         P082_TIMEOUT = P082_DEFAULT_FIX_TIMEOUT;
       }
+      const ESPEasySerialPort port = static_cast<ESPEasySerialPort>(CONFIG_PORT);
       const int16_t serial_rx = CONFIG_PIN1;
       const int16_t serial_tx = CONFIG_PIN2;
       const int16_t pps_pin   = CONFIG_PIN3;
@@ -403,9 +402,9 @@ boolean Plugin_082(byte function, struct EventStruct *event, String& string) {
         return success;
       }
 
-      if (P082_data->init(serial_rx, serial_tx)) {
+      if (P082_data->init(port, serial_rx, serial_tx)) {
         success = true;
-        serialHelper_log_GpioDescription(serial_rx, serial_tx);
+        serialHelper_log_GpioDescription(port, serial_rx, serial_tx);
 
         if (pps_pin != -1) {
           //          pinMode(pps_pin, INPUT_PULLUP);
@@ -418,7 +417,6 @@ boolean Plugin_082(byte function, struct EventStruct *event, String& string) {
     }
 
     case PLUGIN_EXIT: {
-      clearPluginTaskData(event->TaskIndex);
       const int16_t pps_pin = CONFIG_PIN3;
 
       if (pps_pin != -1) {
@@ -488,7 +486,7 @@ boolean Plugin_082(byte function, struct EventStruct *event, String& string) {
         }
         P082_setOutputValue(event, P082_QUERY_SATVIS,      P082_data->gps->satellitesStats.nrSatsVisible());
         P082_setOutputValue(event, P082_QUERY_SATUSE,      P082_data->gps->satellitesStats.nrSatsTracked());
-        P082_setOutputValue(event, P082_QUERY_HDOP,        P082_data->gps->hdop.value() / 100.0);
+        P082_setOutputValue(event, P082_QUERY_HDOP,        P082_data->gps->hdop.value() / 100.0f);
         P082_setOutputValue(event, P082_QUERY_FIXQ,        P082_data->gps->location.Quality());
         P082_setOutputValue(event, P082_QUERY_DB_MAX,      P082_data->gps->satellitesStats.getBestSNR());
         P082_setOutputValue(event, P082_QUERY_CHKSUM_FAIL, P082_data->gps->failedChecksum());
@@ -606,7 +604,7 @@ void P082_logStats(struct EventStruct *event) {
   log += F(" #SNR: ");
   log += P082_data->gps->satellitesStats.getBestSNR();
   log += F(" HDOP: ");
-  log += P082_data->gps->hdop.value() / 100.0;
+  log += P082_data->gps->hdop.value() / 100.0f;
   log += F(" Chksum(pass/fail): ");
   log += P082_data->gps->passedChecksum();
   log += '/';
@@ -716,7 +714,7 @@ void P082_html_show_stats(struct EventStruct *event) {
   P082_html_show_satStats(event, false, false);
 
   addRowLabel(F("HDOP"));
-  addHtml(String(P082_data->gps->hdop.value() / 100.0));
+  addHtml(String(P082_data->gps->hdop.value() / 100.0f));
 
   addRowLabel(F("UTC Time"));
   struct tm dateTime;

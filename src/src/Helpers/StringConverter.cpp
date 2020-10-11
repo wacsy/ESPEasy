@@ -16,8 +16,14 @@
 #include "../Globals/Plugins.h"
 #include "../Globals/Settings.h"
 
+#include "../Helpers/StringParser.h"
+#include "../Helpers/_CPlugin_SensorTypeHelper.h"
+
+#include "Misc.h"
+
 #include "../../ESPEasy_Log.h"
 #include "../../ESPEasy_fdwdecl.h"
+#include "../../_Plugin_Helper.h"
 
 
 // -V::569
@@ -207,31 +213,35 @@ String doFormatUserVar(struct EventStruct *event, byte rel_index, bool mustCheck
     return "0";
   }
 
-  if (Device[DeviceIndex].ValueCount <= rel_index) {
+  const byte valueCount = getValueCountForTask(event->TaskIndex);
+  Sensor_VType sensorType = event->getSensorType();
+
+  if (valueCount <= rel_index) {
     isvalid = false;
 
     if (loglevelActiveFor(LOG_LEVEL_ERROR)) {
       String log = F("No sensor value for TaskIndex: ");
-      log += event->TaskIndex;
+      log += event->TaskIndex + 1;
       log += F(" varnumber: ");
-      log += rel_index;
+      log += rel_index + 1;
+      log += F(" type: ");
+      log += getSensorTypeLabel(sensorType);
       addLog(LOG_LEVEL_ERROR, log);
     }
     return "";
   }
-  const byte BaseVarIndex = event->TaskIndex * VARS_PER_TASK;
 
-  switch (Device[DeviceIndex].VType) {
-    case SENSOR_TYPE_LONG:
-      return String((unsigned long)UserVar[BaseVarIndex] + ((unsigned long)UserVar[BaseVarIndex + 1] << 16));
-    case SENSOR_TYPE_STRING:
+  switch (sensorType) {
+    case Sensor_VType::SENSOR_TYPE_LONG:
+      return String((unsigned long)UserVar[event->BaseVarIndex] + ((unsigned long)UserVar[event->BaseVarIndex + 1] << 16));
+    case Sensor_VType::SENSOR_TYPE_STRING:
       return event->String2;
 
     default:
       break;
   }
 
-  float f(UserVar[BaseVarIndex + rel_index]);
+  float f(UserVar[event->BaseVarIndex + rel_index]);
 
   if (mustCheck && !isValidFloat(f)) {
     isvalid = false;
@@ -256,18 +266,14 @@ String doFormatUserVar(struct EventStruct *event, byte rel_index, bool mustCheck
 String formatUserVarNoCheck(taskIndex_t TaskIndex, byte rel_index) {
   bool isvalid;
 
-  // FIXME TD-er: calls to this function cannot handle SENSOR_TYPE_STRING
-  struct EventStruct TempEvent;
-
-  TempEvent.TaskIndex = TaskIndex;
+  // FIXME TD-er: calls to this function cannot handle Sensor_VType::SENSOR_TYPE_STRING
+  struct EventStruct TempEvent(TaskIndex);
   return doFormatUserVar(&TempEvent, rel_index, false, isvalid);
 }
 
 String formatUserVar(taskIndex_t TaskIndex, byte rel_index, bool& isvalid) {
-  // FIXME TD-er: calls to this function cannot handle SENSOR_TYPE_STRING
-  struct EventStruct TempEvent;
-
-  TempEvent.TaskIndex = TaskIndex;
+  // FIXME TD-er: calls to this function cannot handle Sensor_VType::SENSOR_TYPE_STRING
+  struct EventStruct TempEvent(TaskIndex);
   return doFormatUserVar(&TempEvent, rel_index, true, isvalid);
 }
 
@@ -678,23 +684,31 @@ void parseEventVariables(String& s, struct EventStruct *event, boolean useURLenc
   SMART_REPL(F("%id%"), String(event->idx))
 
   if (s.indexOf(F("%val")) != -1) {
-    if (event->sensorType == SENSOR_TYPE_LONG) {
+    if (event->getSensorType() == Sensor_VType::SENSOR_TYPE_LONG) {
       SMART_REPL(F("%val1%"), String((unsigned long)UserVar[event->BaseVarIndex] + ((unsigned long)UserVar[event->BaseVarIndex + 1] << 16)))
     } else {
-      SMART_REPL(F("%val1%"), formatUserVarNoCheck(event, 0))
-      SMART_REPL(F("%val2%"), formatUserVarNoCheck(event, 1))
-      SMART_REPL(F("%val3%"), formatUserVarNoCheck(event, 2))
-      SMART_REPL(F("%val4%"), formatUserVarNoCheck(event, 3))
+      for (byte i = 0; i < getValueCountForTask(event->TaskIndex); ++i) {
+        String valstr = F("%val");
+        valstr += (i + 1);
+        valstr += '%';
+        SMART_REPL(valstr, formatUserVarNoCheck(event, i));
+      }
     }
   }
-  LoadTaskSettings(event->TaskIndex);
-  repl(F("%tskname%"), ExtraTaskSettings.TaskDeviceName, s, useURLencode);
+  const bool tskname_found = s.indexOf(F("%tskname%")) != -1;
+  const bool vname_found = s.indexOf(F("%vname")) != -1;
+  if (tskname_found || vname_found) {
+    LoadTaskSettings(event->TaskIndex);
+    if (tskname_found) {
+      repl(F("%tskname%"), ExtraTaskSettings.TaskDeviceName, s, useURLencode);
+    }
 
-  if (s.indexOf(F("%vname")) != -1) {
-    repl(F("%vname1%"), ExtraTaskSettings.TaskDeviceValueNames[0], s, useURLencode);
-    repl(F("%vname2%"), ExtraTaskSettings.TaskDeviceValueNames[1], s, useURLencode);
-    repl(F("%vname3%"), ExtraTaskSettings.TaskDeviceValueNames[2], s, useURLencode);
-    repl(F("%vname4%"), ExtraTaskSettings.TaskDeviceValueNames[3], s, useURLencode);
+    if (vname_found) {
+      repl(F("%vname1%"), ExtraTaskSettings.TaskDeviceValueNames[0], s, useURLencode);
+      repl(F("%vname2%"), ExtraTaskSettings.TaskDeviceValueNames[1], s, useURLencode);
+      repl(F("%vname3%"), ExtraTaskSettings.TaskDeviceValueNames[2], s, useURLencode);
+      repl(F("%vname4%"), ExtraTaskSettings.TaskDeviceValueNames[3], s, useURLencode);
+    }
   }
 }
 
@@ -759,7 +773,7 @@ void parseStandardConversions(String& s, boolean useURLencode) {
   if (s.indexOf(F("%c_")) == -1) {
     return; // Nothing to replace
   }
-  float arg1       = 0.0;
+  float arg1       = 0.0f;
   int   startIndex = 0;
   int   endIndex   = 0;
 
@@ -777,12 +791,13 @@ void parseStandardConversions(String& s, boolean useURLencode) {
   SMART_CONV(F("%c_m2dh%"),   minutesToDayHour(arg1))
   SMART_CONV(F("%c_m2dhm%"),  minutesToDayHourMinute(arg1))
   SMART_CONV(F("%c_s2dhms%"), secondsToDayHourMinuteSecond(arg1))
+  SMART_CONV(F("%c_2hex%"),   formatToHex(arg1, F("")))
   #undef SMART_CONV
 
   // Conversions with 2 parameters
   #define SMART_CONV(T, FUN) \
   while (getConvertArgument2((T), s, arg1, arg2, startIndex, endIndex)) { repl(s.substring(startIndex, endIndex), (FUN), s, useURLencode); }
-  float arg2 = 0.0;
+  float arg2 = 0.0f;
   SMART_CONV(F("%c_dew_th%"), toString(compute_dew_point_temp(arg1, arg2), 2))
   #undef SMART_CONV
 }
