@@ -221,7 +221,7 @@ bool MQTTConnect(controllerIndex_t controller_idx)
 
   // Add subscribe for IoT manager ==testing
   // === To Do === get prefix (e.g. cqw) from settings
-  subscribeTo = "cqw/#";
+  subscribeTo = F("cqw/#");
   parseSystemVariables(subscribeTo, false);
   MQTTclient.subscribe(subscribeTo.c_str());
   log  = F("Subscribed to: ");

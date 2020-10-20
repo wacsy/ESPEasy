@@ -11,7 +11,6 @@
 String CPlugin_005_pubname;
 bool CPlugin_005_mqtt_retainFlag = false;
 
-
 bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& string)
 {
   bool success = false;
@@ -72,66 +71,102 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           bool validTopic = false;
           const int lastindex = event->String1.lastIndexOf('/');
           const String lastPartTopic = event->String1.substring(lastindex + 1);
-          if (lastPartTopic == F("cmd")) {
-            //mqtt directly control https://www.letscontrolit.com/wiki/index.php/ESPEasy_Command_Reference
+          if (lastPartTopic == F("cmd")) {//mqtt directly control https://www.letscontrolit.com/wiki/index.php/ESPEasy_Command_Reference
+            
             cmd = event->String2;
             parseCommandString(&TempEvent, cmd);
             TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
             validTopic = true;
-          } else if (lastPartTopic == F("control")) {
-            // iot manager control
+          } else if (lastPartTopic == F("control")) {// iot manager control
             // format as Topic: cqw/ESPED/stns1b/control payload: 1 or 0 or text
             // topic information {prefix}/{sysname}/{widget last topic}/control
             // {widget last topic} should config same as device name
-            // need convert device name to gpio === To Do ===
+            // convert device name to gpio number based on Settings.TaskDevicePin1[taskIndex]
             const String infoTopic = event->String1.substring(0, lastindex);
             const int infoIndex = infoTopic.lastIndexOf('/');
-            const String wigtopic = infoTopic.substring(infoIndex + 1);
-            bool cmd_pulse = false;
-            cmd = F("gpio,");
+            const String devTopic = event->String1.substring(0, infoIndex);
+            const int devIndex = devTopic.lastIndexOf('/');
+            const String devName = devTopic.substring(devIndex + 1);
+            String log = F("");
 
-            if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
+            String tdevName = F("%sysname%");
+            parseSystemVariables(tdevName, false);
 
-              String log = F("MQTT wigtopic : ");
-              log += wigtopic;
+            if (devName == tdevName) { // message is sent for this node host
+              // take the task device name from MQTT topic
+              const String wigtopic = infoTopic.substring(infoIndex + 1);
 
-              addLog(LOG_LEVEL_DEBUG, log);
-              log = F("info : ");
-              log += infoTopic;
+              // try to load gpio topic config from task device name
+              bool cmd_pulse = false;
 
-              addLog(LOG_LEVEL_DEBUG, log);
-              log = F("index : ");
-              log += String(infoIndex);
-
-              addLog(LOG_LEVEL_DEBUG, log);
-            }
-            // === todo wigtopic name convert to gpio (from file?)
-            {
-              if (wigtopic == F("StudyDeskLight")) {
-                  cmd += F("14,");
-              } else if (wigtopic == F("StudyExt")) {
-                  cmd += F("12,");
-              } else if (wigtopic == F("StudyTV")) {
-                  cmd += F("16,");
-              } else if (wigtopic == F("StudyNAS")) {
-                  cmd += F("5,");
-              } else if (wigtopic == F("NasSwitch")) {
-                  //Pulse,14,1,500
-                  cmd = F("Pulse,3,1,300");
-                  cmd_pulse = true;
-              } else if (wigtopic == F("LivingEnt")) {
-                  cmd += F("4,");
+              // === [wigtopic] name convert to gpio
+              bool find_task = false;
+              taskIndex_t task = 0;
+              while ((!(find_task)) && (task < TASKS_MAX))  // finde mached task with device name
+              {
+                // go through all the tasks (items in the devices page) 
+                if (Settings.TaskDeviceEnabled[task])
+                {
+                  LoadTaskSettings(task);
+                  if (wigtopic == ExtraTaskSettings.TaskDeviceName) {
+                    find_task = true;
+                    log = F("found match task: ");
+                    log += wigtopic;
+                    log += F(" ind: ");
+                    log += task;
+                  }
+                }
+                task++;
               }
+              
+              if(find_task) {
+                task--;
+                log = F("cmd forming from MQTT-json: ");
+                if (wigtopic.indexOf(F("Btn")) > -1) {
+                  cmd_pulse = true;
+                  cmd = F("Pulse,");
+                } else {
+                  cmd = F("GPIO,");
+                }
+                cmd += Settings.TaskDevicePin1[task];
+                cmd += F(",");
+              } else {
+                addLog(LOG_LEVEL_DEBUG, F("no taskDeviceName find with giving topic"));
+                break;
+              }
+              // add control value (e.g. 1 or 0) to cmd
+              // String2 is the message from MQTT
+              if ((event->String2 == F("1")) ||  (event->String2 == F("0"))) {
+                int cmdSta = event->String2.toInt();
+                //check if logic inversed
+                if (Settings.TaskDevicePin1Inversed[task]) {
+                  cmdSta = !cmdSta;
+                }
+                cmd += String(cmdSta);
+                
+              } else {// unkown payload cmd  
+                String log = F("get unkonkw payload: ");
+                log += event->String2;
+                addLog(LOG_LEVEL_DEBUG, log);
+                break;
+              }
+              if (cmd_pulse){
+                cmd += F(",500");
+              }
+              parseCommandString(&TempEvent, cmd);
+              TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
+              validTopic = true;
+              
+            } else {// the message is not for this device
+              break;
             }
-            // add control value (e.g. 1 or 0) to end cmd
-            if (!(cmd_pulse)){
-              cmd += event->String2;
-            }
-            parseCommandString(&TempEvent, cmd);
-            TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
-            validTopic = true;
 
-          } else {
+          } else if (lastPartTopic == F("dev")) {
+            String log = F("in topic dev: ");
+
+            addLog(LOG_LEVEL_DEBUG, log);
+            break;
+          } else { // unknow last topic
             if (lastindex > 0) {
               // Topic has at least one separator
               if (isFloat(event->String2) && isInt(lastPartTopic)) {
@@ -142,10 +177,11 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                 TempEvent.Par3 = 0;
                 validTopic = true;
               }
-            } else {
-              // no sub topic, should be a broadcast message
+            } else { // no sub topic, should be a broadcast message
+              
               cmd = event->String2;
-              if (cmd == F("HELLO")) {
+              if (cmd == F("HELLO")) { // hello message from IoTmanager
+                // addLog(LOG_LEVEL_DEBUG, F("get HELLO broadcast message"));
                 //got hello broadcast message from app, send widget config on this device
                 String iot_topic = "cqw/";
                 // give the system name to iot topic
@@ -157,46 +193,70 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                 fileName = F("iotconfig.txt");
                 fs::File f = tryOpenFile(fileName, "r");
                 if (f) {
-                  char buffer[256];
-                  while (f.available()) {
-                    int l = f.readBytesUntil('\n', buffer, sizeof(buffer));
-                    buffer[l] = 0;
-                    iot_payload = buffer;
-                    MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
-                  }
-                  f.close();
                   // update current gpio status
+                  StaticJsonDocument<384> tk_stat;
+                  
                   for (taskIndex_t task = 0; task < TASKS_MAX; task++)
                   {
+                    // go through all the tasks (items in the devices page) 
+                    // and save stats to tk_stat[deviceName], where deviceName is same as iotconfig topic
                     if (Settings.TaskDeviceEnabled[task])
                     {
+                      // only check when such task enabled (a setting in the device item)
                       LoadTaskSettings(task);
                       const deviceIndex_t DeviceIndex = getDeviceIndex_from_TaskIndex(task);
                       byte valueCount = getValueCountFromSensorType(Device[DeviceIndex].VType);
 
                       String deviceName = ExtraTaskSettings.TaskDeviceName;
-                      
                       for (byte x = 0; x < valueCount; x++) {
-                        String value = formatUserVarNoCheck(task, x);
-                        String iot_update_topic = iot_topic;
-                        iot_update_topic.replace(F("config"), deviceName);
-                        if (valueCount == 1) {
-                          iot_update_topic += "/{{takvalue}}";
-                        } else {
-                          iot_update_topic += "A{{takvalue}}/status";
-                        }
-                        iot_update_topic.replace(F("{{takvalue}}"), ExtraTaskSettings.TaskDeviceValueNames[x]);
 
-                        String iot_update_payload = "{\"status\":";
-                        iot_update_payload += value;
-                        iot_update_payload += "}";
-                        MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
+                        String value = formatUserVarNoCheck(task, x);
+
+                        if (valueCount == 1) {
+                          tk_stat[deviceName] = value;
+                        } else {
+                          tk_stat[deviceName + F("A") + ExtraTaskSettings.TaskDeviceValueNames[x]] = value;
+                        }
                       }
                     }
                   }
+
+                  char buffer[384];
+
+                  while (f.available()) {
+                    int l = f.readBytesUntil('\n', buffer, sizeof(buffer));
+                    
+                    buffer[l] = 0;
+                    StaticJsonDocument<384> iot_item;
+                    // json read
+                    deserializeJson(iot_item, buffer);
+                    const String topic_devic = iot_item["topic"];
+                    // 1 find which task based on topic
+                    const int devIndex = topic_devic.lastIndexOf('/');
+                    const String devName = topic_devic.substring(devIndex + 1);
+
+                    // 2 find the status of such task
+                    // no status information if it is a btn (maybe others as well)
+                    if ((tk_stat[devName]) && (iot_item["widget"] != F("btn"))) {
+                      iot_item["status"] = tk_stat[devName];
+                    }
+                    // 3 add status to string for iot payload
+                    iot_payload = F("");
+                    serializeJson(iot_item, iot_payload);
+                    
+                    MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+                  }
+                  f.close();
                 } else {
-                  MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+                  // MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+                  addLog(LOG_LEVEL_DEBUG, F("no iotconfig.txt file read"));
+                  break;
                 }
+              } else { // unknow broadcast message
+                String log = F("unknow broadcast message: ");
+                log += cmd;
+                addLog(LOG_LEVEL_DEBUG, log);
+                break;
               }
             }
           }
@@ -206,17 +266,10 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
             if (command == F("event") || command == F("asyncevent")) {
               eventQueue.add(parseStringToEnd(cmd, 2));
             } else if (!PluginCall(PLUGIN_WRITE, &TempEvent, cmd)) {
+              // String log = F("cmd Rec MQTT C5: ");
+              // log += cmd;
+              // addLog(LOG_LEVEL_DEBUG, log);
               remoteConfig(&TempEvent, cmd);
-            }
-
-            if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
-              String log = F("cmd Rec : ");
-              log += cmd;
-              addLog(LOG_LEVEL_DEBUG, log);
-
-              log = F("Ma: ");
-              log += command;
-              addLog(LOG_LEVEL_DEBUG, log);
             }
           }
         }
@@ -243,63 +296,34 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           String value = "";
           // Small optimization so we don't try to copy potentially large strings
           bool m1, m2, m3;
-          m1 = 0;
-          m2 = 0;
-          m3 = 0;
           if (event->sensorType == Sensor_VType::SENSOR_TYPE_STRING) {
             m1 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), event->String2.c_str(), mqtt_retainFlag);
             value = event->String2.substring(0, 20); // For the log
           } else {
             value = formatUserVarNoCheck(event, x);
+            // send the mqtt message to update openHAB
             m2 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), value.c_str(), mqtt_retainFlag);
+
             // report status to IoT manager once a status updated for a task (device)
-            String iot_update_topic = "cqw/";
-            iot_update_topic += tmppubname;
+            String strDevicName = ExtraTaskSettings.TaskDeviceName;
+            if (strDevicName.indexOf(F("Btn")) == -1) {
 
-            if (valueCount != 1) {
-              const int lastindex = iot_update_topic.lastIndexOf('/');
-              iot_update_topic[lastindex] = 'A';
-              iot_update_topic += "/status";
+              String iot_update_topic = "cqw/";
+              iot_update_topic += tmppubname;
+
+              if (valueCount != 1) {
+                const int lastindex = iot_update_topic.lastIndexOf('/');
+                iot_update_topic[lastindex] = 'A';
+                iot_update_topic += "/status";
+              }
+              iot_update_topic.replace(F("{{takvalue}}"), ExtraTaskSettings.TaskDeviceValueNames[x]);
+
+              String iot_update_payload = "{\"status\":";
+              iot_update_payload += value;
+              iot_update_payload += "}";
+              m3 = MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
             }
-            iot_update_topic.replace(F("{{takvalue}}"), ExtraTaskSettings.TaskDeviceValueNames[x]);
-
-            String iot_update_payload = "{\"status\":";
-            iot_update_payload += value;
-            iot_update_payload += "}";
-            m3 = MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
           }
-
-          // hard code to publish a message to IoTmanager
-          // String iot_topic = "cqw/ESPED/heartbeat/status";
-          // String iot_payload = "{\"status\": 16}";
-          // m3 = MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
-// #ifndef BUILD_NO_DEBUG
-          if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
-            String log = F("MQTT : ");
-            log += tmppubname;
-            log += ' ';
-            log += value;
-            if (m1) {
-              log += F(" sensor mqtt sent==");
-            } else
-            {
-              log += F(" sensor mqtt fail==");
-            }
-            if (m2) {
-              log += F(" other mqtt sent==");
-            } else
-            {
-              log += F(" other mqtt fail==");
-            }
-            if (m3) {
-              log += F(" iot status sent==");
-            } else
-            {
-              log += F(" iot status fail==");
-            }
-            addLog(LOG_LEVEL_DEBUG, log);
-          }
-// #endif
         }
         break;
       }
