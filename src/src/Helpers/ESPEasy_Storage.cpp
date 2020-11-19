@@ -2,26 +2,33 @@
 
 #include "../../ESPEasy_common.h"
 
-#include "../../ESPEasyWifi.h"
-#include "../../ESPEasy_Log.h"
-#include "../Globals/Cache.h"
+#include "../CustomBuild/StorageLayout.h"
+
+#include "../DataStructs/TimingStats.h"
+
+#include "../ESPEasyCore/ESPEasy_Log.h"
+#include "../ESPEasyCore/ESPEasyWifi.h"
+#include "../ESPEasyCore/Serial.h"
+
 #include "../Globals/CRCValues.h"
-#include "../Globals/ResetFactoryDefaultPref.h"
-#include "../Globals/RTC.h"
+#include "../Globals/Cache.h"
+#include "../Globals/ESPEasyWiFiEvent.h"
+#include "../Globals/ESPEasy_Scheduler.h"
 #include "../Globals/EventQueue.h"
 #include "../Globals/ExtraTaskSettings.h"
 #include "../Globals/Plugins.h"
+#include "../Globals/RTC.h"
+#include "../Globals/ResetFactoryDefaultPref.h"
 #include "../Globals/SecuritySettings.h"
-#include "../Globals/ESPEasy_Scheduler.h"
+#include "../Globals/Settings.h"
 
-#include "../DataStructs/TimingStats.h"
-#include "../DataStructs/StorageLayout.h"
-
-#include "../Helpers/ESPEasy_FactoryDefault.h"
-#include "../Helpers/ESPEasy_time_calc.h"
 #include "../Helpers/ESPEasyRTC.h"
+#include "../Helpers/ESPEasy_FactoryDefault.h"
 #include "../Helpers/ESPEasy_Storage.h"
+#include "../Helpers/ESPEasy_time_calc.h"
+#include "../Helpers/FS_Helper.h"
 #include "../Helpers/Hardware.h"
+#include "../Helpers/MDNS_Helper.h"
 #include "../Helpers/Memory.h"
 #include "../Helpers/Misc.h"
 #include "../Helpers/Numerical.h"
@@ -371,8 +378,8 @@ String SaveSettings(void)
 
     if (WifiIsAP(WiFi.getMode())) {
       // Security settings are saved, may be update of WiFi settings or hostname.
-      wifiSetupConnect         = true;
-      wifiConnectAttemptNeeded = true;
+      WiFiEventData.wifiSetupConnect         = true;
+      WiFiEventData.wifiConnectAttemptNeeded = true;
     }
   }
   ExtendedControllerCredentials.save();
@@ -710,9 +717,7 @@ String LoadTaskSettings(taskIndex_t TaskIndex)
 
   START_TIMER
   ExtraTaskSettings.clear();
-  String result = "";
-  result =
-    LoadFromFile(SettingsType::Enum::TaskSettings_Type, TaskIndex, (byte *)&ExtraTaskSettings, sizeof(struct ExtraTaskSettingsStruct));
+  const String result = LoadFromFile(SettingsType::Enum::TaskSettings_Type, TaskIndex, (byte *)&ExtraTaskSettings, sizeof(struct ExtraTaskSettingsStruct));
 
   // After loading, some settings may need patching.
   ExtraTaskSettings.TaskIndex = TaskIndex; // Needed when an empty task was requested
@@ -877,8 +882,6 @@ String InitFile(const String& fname, int datasize)
   fs::File f = tryOpenFile(fname, "w");
 
   if (f) {
-    SPIFFS_CHECK(f, fname.c_str());
-
     for (int x = 0; x < datasize; x++)
     {
       // See https://github.com/esp8266/Arduino/commit/b1da9eda467cc935307d553692fdde2e670db258#r32622483
@@ -1004,8 +1007,6 @@ String ClearInFile(const char *fname, int index, int datasize)
   fs::File f = tryOpenFile(fname, "r+");
 
   if (f) {
-    SPIFFS_CHECK(f,                          fname);
-
     SPIFFS_CHECK(f.seek(index, fs::SeekSet), fname);
 
     for (int x = 0; x < datasize; x++)

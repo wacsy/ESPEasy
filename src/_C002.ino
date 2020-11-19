@@ -1,5 +1,7 @@
-#include "_CPlugin_Helper.h"
+#include "src/Helpers/_CPlugin_Helper.h"
 #ifdef USES_C002
+
+#include "src/Helpers/_CPlugin_DomoticzHelper.h"
 
 // #######################################################################################################
 // ########################### Controller Plugin 002: Domoticz MQTT ######################################
@@ -10,6 +12,11 @@
 #define CPLUGIN_NAME_002       "Domoticz MQTT"
 
 #include "src/Commands/InternalCommands.h"
+#include "src/ESPEasyCore/ESPEasyRules.h"
+#include "src/Globals/Settings.h"
+#include "src/Helpers/PeriodicalActions.h"
+#include "src/Helpers/StringParser.h"
+
 #include <ArduinoJson.h>
 
 String CPlugin_002_pubname;
@@ -97,7 +104,7 @@ bool CPlugin_002(CPlugin::Function function, struct EventStruct *event, String& 
             // We need the index of the controller we are: 0...CONTROLLER_MAX
             if (Settings.TaskDeviceEnabled[x] && (Settings.TaskDeviceID[ControllerID][x] == idx)) // get idx for our controller index
             {
-              String action = "";
+              String action;
 
               switch (Settings.TaskDeviceNumber[x]) {
                 case 1: // temp solution, if input switch, update state
@@ -110,7 +117,6 @@ bool CPlugin_002(CPlugin::Function function, struct EventStruct *event, String& 
                 }
                 case 29: // temp solution, if plugin 029, set gpio
                 {
-                  action = "";
                   int baseVar = x * VARS_PER_TASK;
 
                   if (strcasecmp_P(switchtype, PSTR("dimmer")) == 0)
@@ -138,7 +144,7 @@ bool CPlugin_002(CPlugin::Function function, struct EventStruct *event, String& 
                     action           = F("gpio,");
                     action          += Settings.TaskDevicePin1[x];
                     action          += ',';
-                    action          += nvalue;
+                    action          += static_cast<int>(nvalue);
                   }
                   break;
                 }
@@ -156,7 +162,8 @@ bool CPlugin_002(CPlugin::Function function, struct EventStruct *event, String& 
               }
 
               if (action.length() > 0) {
-                ExecuteCommand_plugin(x, EventValueSource::Enum::VALUE_SOURCE_MQTT, action.c_str());
+                // Try plugin and internal
+                ExecuteCommand(x, EventValueSource::Enum::VALUE_SOURCE_MQTT, action.c_str(), true, true, false);
 
                 // trigger rulesprocessing
                 if (Settings.UseRules) {

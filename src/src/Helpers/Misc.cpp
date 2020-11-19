@@ -3,6 +3,12 @@
 
 #include "../../ESPEasy_common.h"
 #include "../../_Plugin_Helper.h"
+#include "../../ESPEasy_fdwdecl.h"
+#include "../../ESPEasy-Globals.h"
+
+#include "../ESPEasyCore/Serial.h"
+
+#include "../Globals/ESPEasy_time.h"
 
 #include "../Helpers/ESPEasy_FactoryDefault.h"
 #include "../Helpers/ESPEasy_Storage.h"
@@ -14,6 +20,7 @@
 
 bool remoteConfig(struct EventStruct *event, const String& string)
 {
+  // FIXME TD-er: Why have an event here as argument? It is not used.
   checkRAM(F("remoteConfig"));
   bool   success = false;
   String command = parseString(string, 1);
@@ -37,8 +44,8 @@ bool remoteConfig(struct EventStruct *event, const String& string)
 
       if (validTaskIndex(index))
       {
-        event->TaskIndex = index;
-        success          = PluginCall(PLUGIN_SET_CONFIG, event, configCommand);
+        event->setTaskIndex(index);
+        success = PluginCall(PLUGIN_SET_CONFIG, event, configCommand);
       }
     }
   }
@@ -108,17 +115,25 @@ bool setControllerEnableStatus(controllerIndex_t controllerIndex, bool enabled)
 /********************************************************************************************\
    Toggle task enabled state
  \*********************************************************************************************/
-bool setTaskEnableStatus(taskIndex_t taskIndex, bool enabled)
+bool setTaskEnableStatus(struct EventStruct *event, bool enabled)
 {
-  if (!validTaskIndex(taskIndex)) { return false; }
+  if (!validTaskIndex(event->TaskIndex)) { return false; }
   checkRAM(F("setTaskEnableStatus"));
 
   // Only enable task if it has a Plugin configured
-  if (validPluginID(Settings.TaskDeviceNumber[taskIndex]) || !enabled) {
-    Settings.TaskDeviceEnabled[taskIndex] = enabled;
+  if (validPluginID(Settings.TaskDeviceNumber[event->TaskIndex]) || !enabled) {
+    String dummy;
+    if (!enabled) {
+      PluginCall(PLUGIN_EXIT, event, dummy);
+    }
+    Settings.TaskDeviceEnabled[event->TaskIndex] = enabled;
 
     if (enabled) {
-      Scheduler.schedule_task_device_timer(taskIndex, millis() + 10);
+      if (!PluginCall(PLUGIN_INIT, event, dummy)) {
+        return false;
+      }
+      // Schedule the task to be executed almost immediately
+      Scheduler.schedule_task_device_timer(event->TaskIndex, millis() + 10);
     }
     return true;
   }
@@ -315,7 +330,7 @@ bool timeStringToSeconds(const String& tBuf, int& time_seconds) {
 /********************************************************************************************\
    Delayed reboot, in case of issues, do not reboot with high frequency as it might not help...
  \*********************************************************************************************/
-void delayedReboot(int rebootDelay)
+void delayedReboot(int rebootDelay, ESPEasy_Scheduler::IntendedRebootReason_e reason)
 {
   // Direct Serial is allowed here, since this is only an emergency task.
   while (rebootDelay != 0)
@@ -325,11 +340,11 @@ void delayedReboot(int rebootDelay)
     rebootDelay--;
     delay(1000);
   }
-  reboot();
+  reboot(reason);
 }
 
-void reboot() {
-  prepareShutdown();
+void reboot(ESPEasy_Scheduler::IntendedRebootReason_e reason) {
+  prepareShutdown(reason);
   #if defined(ESP32)
   ESP.restart();
   #else // if defined(ESP32)

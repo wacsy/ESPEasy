@@ -1,30 +1,29 @@
 #include "StringConverter.h"
 
-#include "Numerical.h"
-#include "SystemVariables.h"
-#include "ESPEasy_Storage.h"
-#include "Convert.h"
+
+#include "../../_Plugin_Helper.h"
 
 #include "../DataStructs/ESPEasy_EventStruct.h"
 
+#include "../ESPEasyCore/ESPEasy_Log.h"
+
 #include "../Globals/CRCValues.h"
 #include "../Globals/Device.h"
-#include "../Globals/ESPEasy_time.h"
 #include "../Globals/ESPEasyWiFiEvent.h"
+#include "../Globals/ESPEasy_time.h"
 #include "../Globals/ExtraTaskSettings.h"
 #include "../Globals/MQTT.h"
 #include "../Globals/Plugins.h"
 #include "../Globals/Settings.h"
 
+#include "../Helpers/Convert.h"
+#include "../Helpers/ESPEasy_Storage.h"
+#include "../Helpers/Misc.h"
+#include "../Helpers/Networking.h"
+#include "../Helpers/Numerical.h"
 #include "../Helpers/StringParser.h"
-#include "../Helpers/_CPlugin_SensorTypeHelper.h"
-
-#include "Misc.h"
-
-#include "../../ESPEasy_Log.h"
-#include "../../ESPEasy_fdwdecl.h"
-#include "../../_Plugin_Helper.h"
-
+#include "../Helpers/SystemVariables.h"
+#include "../Helpers/_Plugin_SensorTypeHelper.h"
 
 // -V::569
 
@@ -533,7 +532,7 @@ void htmlStrongEscape(String& html)
     else
     {
       char s[4];
-      sprintf(s, "%03d", static_cast<int>(html[i]));
+      sprintf_P(s, PSTR("%03d"), static_cast<int>(html[i]));
       escaped += "&#";
       escaped += s;
       escaped += ";";
@@ -799,6 +798,7 @@ void parseStandardConversions(String& s, boolean useURLencode) {
   while (getConvertArgument2((T), s, arg1, arg2, startIndex, endIndex)) { repl(s.substring(startIndex, endIndex), (FUN), s, useURLencode); }
   float arg2 = 0.0f;
   SMART_CONV(F("%c_dew_th%"), toString(compute_dew_point_temp(arg1, arg2), 2))
+  SMART_CONV(F("%c_u2ip%"),   formatUnitToIPAddress(arg1, arg2))
   #undef SMART_CONV
 }
 

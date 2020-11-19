@@ -1,19 +1,23 @@
 #include "ESPEasy_FactoryDefault.h"
 
-#include "../../ESPEasyWifi.h"
 #include "../../ESPEasy_common.h"
-#include "../../_CPlugin_Helper.h"
 #include "../../_Plugin_Helper.h"
+
+#include "../CustomBuild/StorageLayout.h"
 
 #include "../DataStructs/ControllerSettingsStruct.h"
 #include "../DataStructs/FactoryDefaultPref.h"
 #include "../DataStructs/GpioFactorySettingsStruct.h"
-#include "../DataStructs/StorageLayout.h"
 
+#include "../ESPEasyCore/ESPEasyWifi.h"
+#include "../ESPEasyCore/Serial.h"
+
+#include "../Globals/ESPEasyWiFiEvent.h"
 #include "../Globals/RTC.h"
 #include "../Globals/ResetFactoryDefaultPref.h"
 #include "../Globals/SecuritySettings.h"
 
+#include "../Helpers/_CPlugin_Helper.h"
 #include "../Helpers/ESPEasyRTC.h"
 #include "../Helpers/Hardware.h"
 #include "../Helpers/Misc.h"
@@ -258,10 +262,10 @@ void ResetFactory()
   // NOTE: this is a known ESP8266 bug, not our fault. :)
   delay(1000);
   WiFi.persistent(true);  // use SDK storage of SSID/WPA parameters
-  intent_to_reboot = true;
+  WiFiEventData.intent_to_reboot = true;
   WifiDisconnect();       // this will store empty ssid/wpa into sdk storage
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
-  reboot();
+  reboot(ESPEasy_Scheduler::IntendedRebootReason_e::ResetFactory);
 }
 
 

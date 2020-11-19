@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-#include "../../ESPEasy_Log.h"
+#include "../ESPEasyCore/ESPEasy_Log.h"
 #include "../Globals/RamTracker.h"
 #include "../Helpers/StringConverter.h"
 
@@ -14,8 +14,15 @@ float  globalstack[STACK_SIZE];
 float *sp     = globalstack - 1;
 float *sp_max = &globalstack[STACK_SIZE - 1];
 
-#define is_operator(c) (c == '+' || c == '-' || c == '*' || c == '/' || c == '^' || c == '%')
-#define is_unary_operator(c) (c == '!')
+bool is_operator(char c)
+{
+  return (c == '+' || c == '-' || c == '*' || c == '/' || c == '^' || c == '%');
+}
+
+bool is_unary_operator(char c) 
+{
+  return (c == '!');
+}
 
 int push(float value)
 {

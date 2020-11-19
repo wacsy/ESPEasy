@@ -1,5 +1,13 @@
-#include "_CPlugin_Helper.h"
+#include "src/Helpers/_CPlugin_Helper.h"
 #ifdef USES_C005
+
+#include "src/Commands/InternalCommands.h"
+#include "src/Globals/EventQueue.h"
+#include "src/Globals/ExtraTaskSettings.h"
+#include "src/Helpers/PeriodicalActions.h"
+#include "src/Helpers/StringParser.h"
+#include "_Plugin_Helper.h"
+
 //#######################################################################################################
 //################### Controller Plugin 005: Home Assistant (openHAB) MQTT ##############################
 //#######################################################################################################
@@ -66,17 +74,24 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           break;
         } else {
           // FIXME TD-er: Command is not parsed for template arguments.
+
+          // Topic  : event->String1
+          // Message: event->String2
           String cmd;
-          struct EventStruct TempEvent(event->TaskIndex);
           bool validTopic = false;
           const int lastindex = event->String1.lastIndexOf('/');
           const String lastPartTopic = event->String1.substring(lastindex + 1);
+
           if (lastPartTopic == F("cmd")) {//mqtt directly control https://www.letscontrolit.com/wiki/index.php/ESPEasy_Command_Reference
-            
+
+            // Example:
+            // topic: ESP_Easy/Bathroom_pir_env/cmd
+            // data: gpio,14,0
+            // Full command:  gpio,14,0
             cmd = event->String2;
-            parseCommandString(&TempEvent, cmd);
-            TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
+            //SP_C005a: string= ;cmd=gpio,12,0 ;taskIndex=12 ;string1=ESPT12/cmd ;string2=gpio,12,0
             validTopic = true;
+
           } else if (lastPartTopic == F("control")) {// iot manager control
             // format as Topic: cqw/ESPED/stns1b/control payload: 1 or 0 or text
             // topic information {prefix}/{sysname}/{widget last topic}/control
@@ -166,15 +181,21 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
 
             addLog(LOG_LEVEL_DEBUG, log);
             break;
-          } else { // unknow last topic
+          } else {
+            // Example:
+            // topic: ESP_Easy/Bathroom_pir_env/GPIO/14 
+            // data: 0 or 1
+            // Full command:  gpio,14,0
+
             if (lastindex > 0) {
               // Topic has at least one separator
               if (isFloat(event->String2) && isInt(lastPartTopic)) {
                 int prevLastindex = event->String1.lastIndexOf('/', lastindex - 1);
                 cmd = event->String1.substring(prevLastindex + 1, lastindex);
-                TempEvent.Par1 = lastPartTopic.toInt();
-                TempEvent.Par2 = event->String2.toFloat();
-                TempEvent.Par3 = 0;
+                cmd += ',';
+                cmd += lastPartTopic;
+                cmd += ',';
+                cmd += event->String2;
                 validTopic = true;
               }
             } else { // no sub topic, should be a broadcast message
@@ -264,12 +285,13 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
             // in case of event, store to buffer and return...
             String command = parseString(cmd, 1);
             if (command == F("event") || command == F("asyncevent")) {
-              eventQueue.add(parseStringToEnd(cmd, 2));
-            } else if (!PluginCall(PLUGIN_WRITE, &TempEvent, cmd)) {
-              // String log = F("cmd Rec MQTT C5: ");
-              // log += cmd;
-              // addLog(LOG_LEVEL_DEBUG, log);
-              remoteConfig(&TempEvent, cmd);
+
+              if (Settings.UseRules) {
+                eventQueue.add(parseStringToEnd(cmd, 2));
+              }
+            } else {
+              ExecuteCommand(event->TaskIndex, EventValueSource::Enum::VALUE_SOURCE_MQTT, cmd.c_str(), true, true, true);
+
             }
           }
         }
@@ -293,7 +315,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
 
           String tmppubname = pubname;
           tmppubname.replace(F("%valname%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
-          String value = "";
+          String value;
           // Small optimization so we don't try to copy potentially large strings
           bool m1, m2, m3;
           if (event->sensorType == Sensor_VType::SENSOR_TYPE_STRING) {
