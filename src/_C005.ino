@@ -168,8 +168,8 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               if (cmd_pulse){
                 cmd += F(",500");
               }
-              parseCommandString(&TempEvent, cmd);
-              TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
+              // parseCommandString(&TempEvent, cmd);
+              // TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
               validTopic = true;
               
             } else {// the message is not for this device
