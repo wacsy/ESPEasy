@@ -1,10 +1,10 @@
 #include "../WebServer/AdvancedConfigPage.h"
 
-#include "../WebServer/WebServer.h"
 #include "../WebServer/HTML_wrappers.h"
 #include "../WebServer/Markup.h"
 #include "../WebServer/Markup_Buttons.h"
 #include "../WebServer/Markup_Forms.h"
+#include "../WebServer/WebServer.h"
 
 #include "../Globals/ESPEasy_time.h"
 #include "../Globals/Settings.h"
@@ -21,38 +21,28 @@
 // Web Interface config page
 // ********************************************************************************
 void handle_advanced() {
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("handle_advanced"));
+  #endif
 
   if (!isLoggedIn()) { return; }
   navMenuIndex = MENU_INDEX_TOOLS;
   TXBuffer.startStream();
   sendHeadandTail_stdtemplate();
 
-  int timezone      = getFormItemInt(F("timezone"));
-  int dststartweek  = getFormItemInt(F("dststartweek"));
-  int dststartdow   = getFormItemInt(F("dststartdow"));
-  int dststartmonth = getFormItemInt(F("dststartmonth"));
-  int dststarthour  = getFormItemInt(F("dststarthour"));
-  int dstendweek    = getFormItemInt(F("dstendweek"));
-  int dstenddow     = getFormItemInt(F("dstenddow"));
-  int dstendmonth   = getFormItemInt(F("dstendmonth"));
-  int dstendhour    = getFormItemInt(F("dstendhour"));
-  String edit       = web_server.arg(F("edit"));
-
-
-  if (edit.length() != 0)
+  if (web_server.arg(F("edit")).length() != 0)
   {
 //    Settings.MessageDelay_unused = getFormItemInt(F("messagedelay"));
     Settings.IP_Octet     = web_server.arg(F("ip")).toInt();
     strncpy_webserver_arg(Settings.NTPHost, F("ntphost"));
-    Settings.TimeZone = timezone;
-    TimeChangeRule dst_start(dststartweek, dststartdow, dststartmonth, dststarthour, timezone);
+    Settings.TimeZone = getFormItemInt(F("timezone"));
+    TimeChangeRule dst_start(getFormItemInt(F("dststartweek")), getFormItemInt(F("dststartdow")), getFormItemInt(F("dststartmonth")), getFormItemInt(F("dststarthour")), Settings.TimeZone);
 
     if (dst_start.isValid()) { Settings.DST_Start = dst_start.toFlashStoredValue(); }
-    TimeChangeRule dst_end(dstendweek, dstenddow, dstendmonth, dstendhour, timezone);
+    TimeChangeRule dst_end(getFormItemInt(F("dstendweek")), getFormItemInt(F("dstenddow")), getFormItemInt(F("dstendmonth")), getFormItemInt(F("dstendhour")), Settings.TimeZone);
 
     if (dst_end.isValid()) { Settings.DST_End = dst_end.toFlashStoredValue(); }
-    str2ip(web_server.arg(F("syslogip")).c_str(), Settings.Syslog_IP);
+    webArg2ip(F("syslogip"), Settings.Syslog_IP);
     Settings.WebserverPort = getFormItemInt(F("webport"));
     Settings.UDPPort = getFormItemInt(F("udpport"));
 
@@ -85,7 +75,9 @@ void handle_advanced() {
 //    Settings.uniqueMQTTclientIdReconnect(isFormItemChecked(F("uniquemqttclientidreconnect")));
     Settings.Latitude  = getFormItemFloat(F("latitude"));
     Settings.Longitude = getFormItemFloat(F("longitude"));
+    #ifdef WEBSERVER_NEW_RULES
     Settings.OldRulesEngine(isFormItemChecked(F("oldrulesengine")));
+    #endif // WEBSERVER_NEW_RULES
     Settings.TolerantLastArgParse(isFormItemChecked(F("tolerantargparse")));
     Settings.SendToHttp_ack(isFormItemChecked(F("sendtohttp_ack")));
     Settings.ForceWiFi_bg_mode(isFormItemChecked(getInternalLabel(LabelType::FORCE_WIFI_BG)));
@@ -111,7 +103,9 @@ void handle_advanced() {
   addFormSubHeader(F("Rules Settings"));
 
   addFormCheckBox(F("Rules"),      F("userules"),       Settings.UseRules);
+  #ifdef WEBSERVER_NEW_RULES
   addFormCheckBox(F("Old Engine"), F("oldrulesengine"), Settings.OldRulesEngine());
+  #endif // WEBSERVER_NEW_RULES
   addFormCheckBox(F("Tolerant last parameter"), F("tolerantargparse"), Settings.TolerantLastArgParse());
   addFormNote(F("Perform less strict parsing on last argument of some commands (e.g. publish and sendToHttp)"));
   addFormCheckBox(F("SendToHTTP wait for ack"), F("sendtohttp_ack"), Settings.SendToHttp_ack());
@@ -238,7 +232,8 @@ void addFormDstSelect(bool isStart, uint16_t choice) {
   }
   TimeChangeRule rule(isStart ? tmpstart : tmpend, 0);
   {
-    String weeklabel = isStart ? F("Start (week, dow, month)")  : F("End (week, dow, month)");
+    String weeklabel = isStart ? F("Start")  : F("End");
+    weeklabel += F(" (week, dow, month)");
     String weekid  = isStart ? F("dststartweek")  : F("dstendweek");
     String week[5]       = { F("Last"), F("1st"), F("2nd"), F("3rd"), F("4th") };
     int    weekValues[5] = { 0, 1, 2, 3, 4 };

@@ -18,12 +18,16 @@
 
 #include "../../_Plugin_Helper.h"
 
+#ifdef WEBSERVER_CUSTOM
+
 // ********************************************************************************
 // Web Interface custom page handler
 // ********************************************************************************
 boolean handle_custom(String path) {
   // path is a deepcopy, since it will be changed.
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("handle_custom"));
+  #endif
 
   if (!clientIPallowed()) { return false; }
 
@@ -120,12 +124,12 @@ boolean handle_custom(String path) {
     html_add_button_prefix();
     addHtml(path);
     addHtml(F("?btnunit="));
-    addHtml(String(prev));
+    addHtmlInt(prev);
     addHtml(F("'>&lt;</a>"));
     html_add_button_prefix();
     addHtml(path);
     addHtml(F("?btnunit="));
-    addHtml(String(next));
+    addHtmlInt(next);
     addHtml(F("'>&gt;</a>"));
   }
 
@@ -143,7 +147,7 @@ boolean handle_custom(String path) {
 
   if (dataFile)
   {
-    String page = "";
+    String page;
     page.reserve(dataFile.size());
 
     while (dataFile.available()) {
@@ -186,7 +190,7 @@ boolean handle_custom(String path) {
                 html_TD();
                 addHtml(ExtraTaskSettings.TaskDeviceValueNames[varNr]);
                 html_TD();
-                addHtml(String(UserVar[x * VARS_PER_TASK + varNr], ExtraTaskSettings.TaskDeviceValueDecimals[varNr]));
+                addHtml(formatUserVarNoCheck(x, varNr));
               }
             }
           }
@@ -198,3 +202,5 @@ boolean handle_custom(String path) {
   TXBuffer.endStream();
   return true;
 }
+
+#endif

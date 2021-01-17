@@ -8,9 +8,9 @@
 #include "src/Helpers/StringParser.h"
 #include "_Plugin_Helper.h"
 
-//#######################################################################################################
-//################### Controller Plugin 005: Home Assistant (openHAB) MQTT ##############################
-//#######################################################################################################
+// #######################################################################################################
+// ################### Controller Plugin 005: Home Assistant (openHAB) MQTT ##############################
+// #######################################################################################################
 
 #define CPLUGIN_005
 #define CPLUGIN_ID_005         5
@@ -26,37 +26,38 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
   switch (function)
   {
     case CPlugin::Function::CPLUGIN_PROTOCOL_ADD:
-      {
-        Protocol[++protocolCount].Number = CPLUGIN_ID_005;
-        Protocol[protocolCount].usesMQTT = true;
-        Protocol[protocolCount].usesTemplate = true;
-        Protocol[protocolCount].usesAccount = true;
-        Protocol[protocolCount].usesPassword = true;
-        Protocol[protocolCount].usesExtCreds = true;
-        Protocol[protocolCount].defaultPort = 1883;
-        Protocol[protocolCount].usesID = false;
-        break;
-      }
+    {
+      Protocol[++protocolCount].Number     = CPLUGIN_ID_005;
+      Protocol[protocolCount].usesMQTT     = true;
+      Protocol[protocolCount].usesTemplate = true;
+      Protocol[protocolCount].usesAccount  = true;
+      Protocol[protocolCount].usesPassword = true;
+      Protocol[protocolCount].usesExtCreds = true;
+      Protocol[protocolCount].defaultPort  = 1883;
+      Protocol[protocolCount].usesID       = false;
+      break;
+    }
 
     case CPlugin::Function::CPLUGIN_GET_DEVICENAME:
-      {
-        string = F(CPLUGIN_NAME_005);
-        break;
-      }
+    {
+      string = F(CPLUGIN_NAME_005);
+      break;
+    }
 
     case CPlugin::Function::CPLUGIN_INIT:
-      {
-        success = init_mqtt_delay_queue(event->ControllerIndex, CPlugin_005_pubname, CPlugin_005_mqtt_retainFlag);
-        break;
-      }
+    {
+      success = init_mqtt_delay_queue(event->ControllerIndex, CPlugin_005_pubname, CPlugin_005_mqtt_retainFlag);
+      break;
+    }
 
     case CPlugin::Function::CPLUGIN_EXIT:
-      {
-        exit_mqtt_delay_queue();
-        break;
-      }
+    {
+      exit_mqtt_delay_queue();
+      break;
+    }
 
     case CPlugin::Function::CPLUGIN_PROTOCOL_TEMPLATE:
+
       {
         // topic sub
         event->String1 = F("%sysname%/#");
@@ -292,14 +293,17 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
             } else {
               ExecuteCommand(event->TaskIndex, EventValueSource::Enum::VALUE_SOURCE_MQTT, cmd.c_str(), true, true, true);
 
+
             }
           }
         }
         break;
       }
+      
+
 
     case CPlugin::Function::CPLUGIN_PROTOCOL_SEND:
-      {
+    {
         String pubname = CPlugin_005_pubname;
         bool mqtt_retainFlag = CPlugin_005_mqtt_retainFlag;
 
@@ -346,22 +350,23 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               m3 = MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
             }
           }
+
         }
         break;
       }
 
     case CPlugin::Function::CPLUGIN_FLUSH:
-      {
-        processMQTTdelayQueue();
-        delay(0);
-        break;
-      }
+    {
+      processMQTTdelayQueue();
+      delay(0);
+      break;
+    }
 
     default:
       break;
-
   }
 
   return success;
 }
-#endif
+
+#endif // ifdef USES_C005

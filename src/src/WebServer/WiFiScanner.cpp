@@ -13,19 +13,21 @@
 // Web Interface Wifi scanner
 // ********************************************************************************
 void handle_wifiscanner_json() {
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("handle_wifiscanner"));
+  #endif
 
   if (!isLoggedIn()) { return; }
   navMenuIndex = MENU_INDEX_TOOLS;
   TXBuffer.startJsonStream();
-  addHtml("[{");
+  addHtml(F("[{"));
   bool firstentry = true;
   int  n          = WiFi.scanNetworks(false, true);
 
   for (int i = 0; i < n; ++i)
   {
     if (firstentry) { firstentry = false; }
-    else { addHtml(",{"); }
+    else { addHtml(F(",{")); }
     String authType;
 
     switch (WiFi.encryptionType(i)) {
@@ -56,9 +58,9 @@ void handle_wifiscanner_json() {
     stream_last_json_object_value(getLabel(LabelType::WIFI_RSSI), String(WiFi.RSSI(i)));
   }
   if (firstentry) {
-    addHtml("}");
+    addHtml('}');
   }
-  addHtml("]");
+  addHtml(']');
   TXBuffer.endStream();
 }
 
@@ -67,7 +69,9 @@ void handle_wifiscanner_json() {
 #ifdef WEBSERVER_WIFI_SCANNER
 
 void handle_wifiscanner() {
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("handle_wifiscanner"));
+  #endif
 
   if (!isLoggedIn()) { return; }
 

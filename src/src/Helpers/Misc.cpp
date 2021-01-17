@@ -21,7 +21,9 @@
 bool remoteConfig(struct EventStruct *event, const String& string)
 {
   // FIXME TD-er: Why have an event here as argument? It is not used.
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("remoteConfig"));
+  #endif
   bool   success = false;
   String command = parseString(string, 1);
 
@@ -52,36 +54,6 @@ bool remoteConfig(struct EventStruct *event, const String& string)
   return success;
 }
 
-#if defined(ESP32)
-void analogWriteESP32(int pin, int value)
-{
-  // find existing channel if this pin has been used before
-  int8_t ledChannel = -1;
-
-  for (byte x = 0; x < 16; x++) {
-    if (ledChannelPin[x] == pin) {
-      ledChannel = x;
-    }
-  }
-
-  if (ledChannel == -1)             // no channel set for this pin
-  {
-    for (byte x = 0; x < 16; x++) { // find free channel
-      if (ledChannelPin[x] == -1)
-      {
-        int freq = 5000;
-        ledChannelPin[x] = pin; // store pin nr
-        ledcSetup(x, freq, 10); // setup channel
-        ledcAttachPin(pin, x);  // attach to this pin
-        ledChannel = x;
-        break;
-      }
-    }
-  }
-  ledcWrite(ledChannel, value);
-}
-
-#endif // if defined(ESP32)
 
 
 /********************************************************************************************\
@@ -102,7 +74,9 @@ void delayBackground(unsigned long dsdelay)
 bool setControllerEnableStatus(controllerIndex_t controllerIndex, bool enabled)
 {
   if (!validControllerIndex(controllerIndex)) { return false; }
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("setControllerEnableStatus"));
+  #endif
 
   // Only enable controller if it has a protocol configured
   if ((Settings.Protocol[controllerIndex] != 0) || !enabled) {
@@ -118,7 +92,9 @@ bool setControllerEnableStatus(controllerIndex_t controllerIndex, bool enabled)
 bool setTaskEnableStatus(struct EventStruct *event, bool enabled)
 {
   if (!validTaskIndex(event->TaskIndex)) { return false; }
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("setTaskEnableStatus"));
+  #endif
 
   // Only enable task if it has a Plugin configured
   if (validPluginID(Settings.TaskDeviceNumber[event->TaskIndex]) || !enabled) {
@@ -146,7 +122,9 @@ bool setTaskEnableStatus(struct EventStruct *event, bool enabled)
 void taskClear(taskIndex_t taskIndex, bool save)
 {
   if (!validTaskIndex(taskIndex)) { return; }
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("taskClear"));
+  #endif
   Settings.clearTask(taskIndex);
   ExtraTaskSettings.clear(); // Invalidate any cached values.
   ExtraTaskSettings.TaskIndex = taskIndex;
@@ -254,78 +232,6 @@ void emergencyReset()
   }
 }
 
-void logtimeStringToSeconds(const String& tBuf, int hours, int minutes, int seconds)
-{
-  #ifndef BUILD_NO_DEBUG
-
-  if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
-    String log;
-    log  = F("timeStringToSeconds: ");
-    log += tBuf;
-    log += F(" -> ");
-    log += hours;
-    log += ':';
-    log += minutes;
-    log += ':';
-    log += seconds;
-    addLog(LOG_LEVEL_DEBUG, log);
-  }
-
-  #endif // ifndef BUILD_NO_DEBUG
-}
-
-// convert old and new time string to nr of seconds
-// return whether it should be considered a time string.
-bool timeStringToSeconds(const String& tBuf, int& time_seconds) {
-  time_seconds = -1;
-  int hours              = 0;
-  int minutes            = 0;
-  int seconds            = 0;
-  const int hour_sep_pos = tBuf.indexOf(':');
-
-  if (hour_sep_pos < 0) {
-    // Only hours, separator not found.
-    if (validIntFromString(tBuf, hours)) {
-      time_seconds = hours * 60 * 60;
-    }
-
-    // It is a valid time string, but could also be just a numerical.
-    logtimeStringToSeconds(tBuf, hours, minutes, seconds);
-    return false;
-  }
-
-  if (!validIntFromString(tBuf.substring(0, hour_sep_pos), hours)) {
-    logtimeStringToSeconds(tBuf, hours, minutes, seconds);
-    return false;
-  }
-  const int min_sep_pos = tBuf.indexOf(':', hour_sep_pos + 1);
-
-  if (min_sep_pos < 0) {
-    // Old format, only HH:MM
-    if (!validIntFromString(tBuf.substring(hour_sep_pos + 1), minutes)) {
-      logtimeStringToSeconds(tBuf, hours, minutes, seconds);
-      return false;
-    }
-  } else {
-    // New format, only HH:MM:SS
-    if (!validIntFromString(tBuf.substring(hour_sep_pos + 1, min_sep_pos), minutes)) {
-      logtimeStringToSeconds(tBuf, hours, minutes, seconds);
-      return false;
-    }
-
-    if (!validIntFromString(tBuf.substring(min_sep_pos + 1), seconds)) {
-      logtimeStringToSeconds(tBuf, hours, minutes, seconds);
-      return false;
-    }
-  }
-
-  if ((minutes < 0) || (minutes > 59)) { return false; }
-
-  if ((seconds < 0) || (seconds > 59)) { return false; }
-  time_seconds = hours * 60 * 60 + minutes * 60 + seconds;
-  logtimeStringToSeconds(tBuf, hours, minutes, seconds);
-  return true;
-}
 
 /********************************************************************************************\
    Delayed reboot, in case of issues, do not reboot with high frequency as it might not help...

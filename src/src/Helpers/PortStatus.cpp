@@ -22,36 +22,30 @@ void savePortStatus(uint32_t key, struct portStatusStruct& tempStatus) {
 }
 
 bool existPortStatus(uint32_t key) {
-  bool retValue = false;
-
-  // check if KEY exists:
-  std::map<uint32_t, portStatusStruct>::iterator it;
-
-  it = globalMapPortStatus.find(key);
-
-  if (it != globalMapPortStatus.end()) { // if KEY exists...
-    retValue = true;
-  }
-  return retValue;
+  return globalMapPortStatus.find(key) != globalMapPortStatus.end();
 }
 
 void removeTaskFromPort(uint32_t key) {
-  if (existPortStatus(key)) {
-    (globalMapPortStatus[key].task > 0) ? globalMapPortStatus[key].task-- : globalMapPortStatus[key].task = 0;
+  const auto it = globalMapPortStatus.find(key);
+  if (it != globalMapPortStatus.end()) {
+    (it->second.task > 0) ? it->second.task-- : it->second.task = 0;
 
-    if ((globalMapPortStatus[key].task <= 0) && (globalMapPortStatus[key].monitor <= 0) && (globalMapPortStatus[key].command <= 0) &&
-        (globalMapPortStatus[key].init <= 0)) {
+    if ((it->second.task <= 0) && (it->second.monitor <= 0) && (it->second.command <= 0) &&
+        (it->second.init <= 0)) {
+      // erase using the key, so the iterator can be const
       globalMapPortStatus.erase(key);
     }
   }
 }
 
 void removeMonitorFromPort(uint32_t key) {
-  if (existPortStatus(key)) {
-    globalMapPortStatus[key].monitor = 0;
+  const auto it = globalMapPortStatus.find(key);
+  if (it != globalMapPortStatus.end()) {
+    it->second.monitor = 0;
 
-    if ((globalMapPortStatus[key].task <= 0) && (globalMapPortStatus[key].monitor <= 0) && (globalMapPortStatus[key].command <= 0) &&
-        (globalMapPortStatus[key].init <= 0)) {
+    if ((it->second.task <= 0) && (it->second.monitor <= 0) && (it->second.command <= 0) &&
+        (it->second.init <= 0)) {
+      // erase using the key, so the iterator can be const
       globalMapPortStatus.erase(key);
     }
   }
@@ -149,17 +143,21 @@ uint16_t getPortFromKey(uint32_t key) {
 \*********************************************************************************************/
 String getPinStateJSON(bool search, uint32_t key, const String& log, int16_t noSearchValue)
 {
+  #ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("getPinStateJSON"));
+  #endif
   printToWebJSON = true;
   byte mode     = PIN_MODE_INPUT;
   int16_t value = noSearchValue;
   bool    found = false;
 
-  if (search && existPortStatus(key))
-  {
-    mode  = globalMapPortStatus[key].mode;
-    value = globalMapPortStatus[key].state;
-    found = true;
+  if (search) {
+    const auto it = globalMapPortStatus.find(key);
+    if (it != globalMapPortStatus.end()) {
+      mode  = it->second.mode;
+      value = it->second.getValue();
+      found = true;
+    }
   }
 
   if (!search || (search && found))
@@ -179,7 +177,7 @@ String getPinStateJSON(bool search, uint32_t key, const String& log, int16_t noS
     reply += F("\n}\n");
     return reply;
   }
-  return "?";
+  return "";
 }
 
 String getPinModeString(byte mode) {

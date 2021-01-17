@@ -1,10 +1,11 @@
-#include "MDNS_Helper.h"
+#include "../Helpers/MDNS_Helper.h"
 
 #include "../ESPEasyCore/ESPEasy_Log.h"
 #include "../ESPEasyCore/ESPEasyEth.h"
 #include "../ESPEasyCore/ESPEasyNetwork.h"
 
 #include "../Globals/NetworkState.h"
+#include "../Globals/Services.h"
 #include "../Globals/Settings.h"
 
 #include "../Helpers/StringProvider.h"
@@ -31,7 +32,7 @@ void set_mDNS() {
     }
 
     if (mdns_started) {
-      MDNS.addService("http", "tcp", Settings.WebserverPort);
+      MDNS.addService(F("http"), F("tcp"), Settings.WebserverPort);
     }
   }
   #endif // ifdef FEATURE_MDNS

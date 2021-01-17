@@ -7,6 +7,8 @@
 #include "../Globals/Nodes.h"
 #include "../Globals/Device.h"
 #include "../Globals/Plugins.h"
+
+#include "../Helpers/ESPEasyStatistics.h"
 #include "../Helpers/ESPEasy_Storage.h"
 #include "../Helpers/Hardware.h"
 #include "../Helpers/Numerical.h"
@@ -132,7 +134,7 @@ void handle_json()
 
   if (!showSpecificTask)
   {
-    addHtml("{");
+    addHtml('{');
 
     if (showSystem) {
       addHtml(F("\"System\":{\n"));
@@ -226,7 +228,7 @@ void handle_json()
             addHtml(F("\"nodes\":[\n")); // open json array if >0 nodes
           }
 
-          addHtml("{");
+          addHtml('{');
           stream_next_json_object_value(F("nr"), String(it->first));
           stream_next_json_object_value(F("name"),
                                         (it->first != Settings.Unit) ? it->second.nodeName : Settings.Name);
@@ -302,7 +304,7 @@ void handle_json()
 
         for (byte x = 0; x < valueCount; x++)
         {
-          addHtml("{");
+          addHtml('{');
           stream_next_json_object_value(F("ValueNumber"), String(x + 1));
           stream_next_json_object_value(F("Name"),        String(ExtraTaskSettings.TaskDeviceValueNames[x]));
           stream_next_json_object_value(F("NrDecimals"),  String(ExtraTaskSettings.TaskDeviceValueDecimals[x]));
@@ -324,7 +326,7 @@ void handle_json()
 
         for (controllerIndex_t x = 0; x < CONTROLLER_MAX; x++)
         {
-          addHtml("{");
+          addHtml('{');
           stream_next_json_object_value(F("Controller"), String(x + 1));
           stream_next_json_object_value(F("IDX"),        String(Settings.TaskDeviceID[x][TaskIndex]));
           stream_last_json_object_value(F("Enabled"), jsonBool(Settings.TaskDeviceSendData[x][TaskIndex]));
@@ -498,7 +500,11 @@ void handle_buildinfo() {
    Streaming versions directly to TXBuffer
 \*********************************************************************************************/
 void stream_to_json_value(const String& value) {
-  if ((value.length() == 0) || !isFloat(value)) {
+  NumericalType detectedType;
+  bool isNum = isNumerical(value, detectedType);
+
+  if ((value.length() == 0) || !isNum || mustConsiderAsString(detectedType)) {
+    // Either empty, not a numerical or a BIN/HEX notation.
     String html;
     html.reserve(value.length() + 2);
     html += '\"';
