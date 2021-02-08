@@ -57,17 +57,16 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
     }
 
     case CPlugin::Function::CPLUGIN_PROTOCOL_TEMPLATE:
-
-      {
+    {
         // topic sub
         event->String1 = F("%sysname%/#");
         // topic pub
         event->String2 = F("%sysname%/%tskname%/%valname%");
         break;
-      }
+    }
 
     case CPlugin::Function::CPLUGIN_PROTOCOL_RECV:
-      {
+    {
         controllerIndex_t ControllerID = findFirstEnabledControllerWithId(CPLUGIN_ID_005);
         bool mqtt_retainFlag = CPlugin_005_mqtt_retainFlag;
         if (!validControllerIndex(ControllerID)) {
@@ -120,7 +119,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               taskIndex_t task = 0;
               while ((!(find_task)) && (task < TASKS_MAX))  // finde mached task with device name
               {
-                // go through all the tasks (items in the devices page) 
+                // go through all the tasks (items in the devices page)
                 if (Settings.TaskDeviceEnabled[task])
                 {
                   LoadTaskSettings(task);
@@ -134,7 +133,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                 }
                 task++;
               }
-              
+
               if(find_task) {
                 task--;
                 log = F("cmd forming from MQTT-json: ");
@@ -159,8 +158,8 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                   cmdSta = !cmdSta;
                 }
                 cmd += String(cmdSta);
-                
-              } else {// unkown payload cmd  
+
+              } else {// unkown payload cmd
                 String log = F("get unkonkw payload: ");
                 log += event->String2;
                 addLog(LOG_LEVEL_DEBUG, log);
@@ -172,7 +171,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               // parseCommandString(&TempEvent, cmd);
               // TempEvent.Source = EventValueSource::Enum::VALUE_SOURCE_MQTT;
               validTopic = true;
-              
+
             } else {// the message is not for this device
               break;
             }
@@ -184,23 +183,27 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
             break;
           } else {
             // Example:
-            // topic: ESP_Easy/Bathroom_pir_env/GPIO/14 
+            // topic: ESP_Easy/Bathroom_pir_env/GPIO/14
             // data: 0 or 1
             // Full command:  gpio,14,0
 
             if (lastindex > 0) {
               // Topic has at least one separator
-              if (isFloat(event->String2) && isInt(lastPartTopic)) {
+              int   lastPartTopic_int;
+              float value_f;
+
+              if (validFloatFromString(event->String2, value_f) &&
+                  validIntFromString(lastPartTopic, lastPartTopic_int)) {
                 int prevLastindex = event->String1.lastIndexOf('/', lastindex - 1);
-                cmd = event->String1.substring(prevLastindex + 1, lastindex);
-                cmd += ',';
-                cmd += lastPartTopic;
-                cmd += ',';
-                cmd += event->String2;
+                cmd        = event->String1.substring(prevLastindex + 1, lastindex);
+                cmd       += ',';
+                cmd       += lastPartTopic_int;
+                cmd       += ',';
+                cmd       += event->String2; // Just use the original format
                 validTopic = true;
               }
             } else { // no sub topic, should be a broadcast message
-              
+
               cmd = event->String2;
               if (cmd == F("HELLO")) { // hello message from IoTmanager
                 // addLog(LOG_LEVEL_DEBUG, F("get HELLO broadcast message"));
@@ -217,10 +220,10 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                 if (f) {
                   // update current gpio status
                   StaticJsonDocument<384> tk_stat;
-                  
+
                   for (taskIndex_t task = 0; task < TASKS_MAX; task++)
                   {
-                    // go through all the tasks (items in the devices page) 
+                    // go through all the tasks (items in the devices page)
                     // and save stats to tk_stat[deviceName], where deviceName is same as iotconfig topic
                     if (Settings.TaskDeviceEnabled[task])
                     {
@@ -247,7 +250,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
 
                   while (f.available()) {
                     int l = f.readBytesUntil('\n', buffer, sizeof(buffer));
-                    
+
                     buffer[l] = 0;
                     StaticJsonDocument<384> iot_item;
                     // json read
@@ -265,7 +268,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                     // 3 add status to string for iot payload
                     iot_payload = F("");
                     serializeJson(iot_item, iot_payload);
-                    
+
                     MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
                   }
                   f.close();
@@ -298,9 +301,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           }
         }
         break;
-      }
-      
-
+    }
 
     case CPlugin::Function::CPLUGIN_PROTOCOL_SEND:
     {
