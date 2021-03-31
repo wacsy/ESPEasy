@@ -316,19 +316,19 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
           //MFD: skip publishing for values with empty labels (removes unnecessary publishing of unwanted values)
           if (ExtraTaskSettings.TaskDeviceValueNames[x][0]==0)
              continue; //we skip values with empty labels
-
           String tmppubname = pubname;
-          tmppubname.replace(F("%valname%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
+          // tmppubname.replace(F("%valname%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
+          parseSingleControllerVariable(tmppubname, event, x, false);
           String value;
           // Small optimization so we don't try to copy potentially large strings
           bool m1, m2, m3;
           if (event->sensorType == Sensor_VType::SENSOR_TYPE_STRING) {
-            m1 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), event->String2.c_str(), mqtt_retainFlag);
+            m1 = MQTTpublish(event->ControllerIndex, event->TaskIndex, tmppubname.c_str(), event->String2.c_str(), mqtt_retainFlag);
             value = event->String2.substring(0, 20); // For the log
           } else {
             value = formatUserVarNoCheck(event, x);
             // send the mqtt message to update openHAB
-            m2 = MQTTpublish(event->ControllerIndex, tmppubname.c_str(), value.c_str(), mqtt_retainFlag);
+            m2 = MQTTpublish(event->ControllerIndex, event->TaskIndex, tmppubname.c_str(), value.c_str(), mqtt_retainFlag);
 
             // report status to IoT manager once a status updated for a task (device)
             String strDevicName = ExtraTaskSettings.TaskDeviceName;
@@ -350,6 +350,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               m3 = MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
             }
           }
+
         }
         break;
       }
