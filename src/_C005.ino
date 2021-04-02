@@ -269,7 +269,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
                     iot_payload = F("");
                     serializeJson(iot_item, iot_payload);
                     
-                    MQTTpublish(event->ControllerIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
+                    MQTTpublish(event->ControllerIndex, event->TaskIndex, iot_topic.c_str(), iot_payload.c_str(), mqtt_retainFlag);
                   }
                   f.close();
                 } else {
@@ -347,7 +347,7 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               String iot_update_payload = "{\"status\":";
               iot_update_payload += value;
               iot_update_payload += "}";
-              m3 = MQTTpublish(event->ControllerIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
+              m3 = MQTTpublish(event->ControllerIndex, event->TaskIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
             }
           }
 

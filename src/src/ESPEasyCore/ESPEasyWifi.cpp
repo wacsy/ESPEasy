@@ -133,6 +133,7 @@ bool WiFiConnected() {
 
   // For ESP82xx, do not rely on WiFi.status() with event based wifi.
   const int32_t wifi_rssi = WiFi.RSSI();
+  static int32_t his_wifi_rssi = -90;
   bool validWiFi = (wifi_rssi < 0) && wifi_isconnected && hasIPaddr();
   if (validWiFi != WiFiEventData.WiFiServicesInitialized()) {
     // else wifiStatus is no longer in sync.
@@ -150,7 +151,13 @@ bool WiFiConnected() {
     STOP_TIMER(WIFI_ISCONNECTED_STATS);
     recursiveCall = false;
     // Only return true after some time since it got connected.
-    SetWiFiTXpower();
+    int32_t diff_rssi = 0;
+    diff_rssi = wifi_rssi - his_wifi_rssi;
+    if ((diff_rssi < -6) || (diff_rssi > 6)) {
+      addLog(LOG_LEVEL_DEBUG, F("Set from WifiConected"));
+      his_wifi_rssi = wifi_rssi;
+      SetWiFiTXpower();
+    }
     return WiFiEventData.wifi_considered_stable || WiFiEventData.lastConnectMoment.timeoutReached(100);
   }
 
@@ -240,6 +247,7 @@ void AttemptWiFiConnect() {
       if (Settings.UseMaxTXpowerForSending()) {
         tx_pwr = Settings.getWiFi_TX_power();
       }
+      // addLog(LOG_LEVEL_DEBUG, F("Set from AttempWifiConnect"));
       SetWiFiTXpower(tx_pwr, candidate.rssi);
       if (candidate.allowQuickConnect()) {
         WiFi.begin(candidate.ssid.c_str(), candidate.key.c_str(), candidate.channel, candidate.bssid);
@@ -843,7 +851,7 @@ void setWifiMode(WiFiMode_t wifimode) {
         #endif
       }
     }
-
+    // addLog(LOG_LEVEL_DEBUG, F("Set from setWifiMode"));
     SetWiFiTXpower();
     if (WifiIsSTA(wifimode)) {
       if (!WiFi.getAutoConnect()) {
