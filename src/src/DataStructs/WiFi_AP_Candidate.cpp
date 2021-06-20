@@ -4,10 +4,11 @@
 #include "../Globals/SecuritySettings.h"
 #include "../Globals/Statistics.h"
 #include "../Helpers/ESPEasy_time_calc.h"
+#include "../Helpers/Misc.h"
 #include "../Helpers/StringConverter.h"
 #include "../Helpers/StringGenerator_WiFi.h"
 #include "../../ESPEasy_common.h"
-#include "../../ESPEasy_fdwdecl.h"
+
 
 
 
@@ -35,25 +36,15 @@ WiFi_AP_Candidate::WiFi_AP_Candidate(uint8_t networkItem) : index(0) {
   ssid    = WiFi.SSID(networkItem);
   rssi    = WiFi.RSSI(networkItem);
   channel = WiFi.channel(networkItem);
-  setBSSID(WiFi.BSSID(networkItem));
+  bssid   = WiFi.BSSID(networkItem);
   enc_type = WiFi.encryptionType(networkItem);
   #ifdef ESP8266
   isHidden = WiFi.isHidden(networkItem);
   #endif // ifdef ESP8266
   #ifdef ESP32
-  isHidden = ssid.length() == 0;
+  isHidden = ssid.isEmpty();
   #endif // ifdef ESP32
   last_seen = millis();
-}
-
-WiFi_AP_Candidate::WiFi_AP_Candidate(const WiFi_AP_Candidate& other)
-: ssid(other.ssid), key(other.key), last_seen(other.last_seen), 
-  rssi(other.rssi), channel(other.channel), index(other.index), 
-  enc_type(other.enc_type), isHidden(other.isHidden), 
-  lowPriority(other.lowPriority), 
-  isEmergencyFallback(other.isEmergencyFallback)
-{
-  setBSSID(other.bssid);
 }
 
 WiFi_AP_Candidate::WiFi_AP_Candidate() {}
@@ -82,32 +73,9 @@ bool WiFi_AP_Candidate::operator==(const WiFi_AP_Candidate& other) const {
   return bssid_match(other.bssid) && ssid.equals(other.ssid) && key.equals(other.key);
 }
 
-WiFi_AP_Candidate& WiFi_AP_Candidate::operator=(const WiFi_AP_Candidate& other) {
-  if (this != &other) { // not a self-assignment
-    ssid    = other.ssid;
-    key     = other.key;
-    last_seen = other.last_seen;
-    rssi    = other.rssi;
-    channel = other.channel;
-    setBSSID(other.bssid);
-    isHidden = other.isHidden;
-    index    = other.index;
-    enc_type = other.enc_type;
-    lowPriority = other.lowPriority;
-    isEmergencyFallback = other.isEmergencyFallback;
-  }
-  return *this;
-}
-
-void WiFi_AP_Candidate::setBSSID(const uint8_t *bssid_c) {
-  for (byte i = 0; i < 6; ++i) {
-    bssid[i] = *(bssid_c + i);
-  }
-}
-
 bool WiFi_AP_Candidate::usable() const {
   // Allow for empty pass
-  // if (key.length() == 0) return false;
+  // if (key.isEmpty()) return false;
   if (isEmergencyFallback) {
     int allowedUptimeMinutes = 10;
     #ifdef CUSTOM_EMERGENCY_FALLBACK_ALLOW_MINUTES_UPTIME
@@ -120,7 +88,7 @@ bool WiFi_AP_Candidate::usable() const {
       return false;
     }
   }
-  if (!isHidden && (ssid.length() == 0)) { return false; }
+  if (!isHidden && (ssid.isEmpty())) { return false; }
   return true;
 }
 
@@ -138,17 +106,15 @@ bool WiFi_AP_Candidate::allowQuickConnect() const {
 }
 
 bool WiFi_AP_Candidate::bssid_set() const {
-  for (byte i = 0; i < 6; ++i) {
-    if (bssid[i] != 0) { return true; }
-  }
-  return false;
+  return !bssid.all_zero();
 }
 
-bool WiFi_AP_Candidate::bssid_match(const uint8_t *bssid_c) const {
-  for (byte i = 0; i < 6; ++i) {
-    if (bssid[i] != bssid_c[i]) { return false; }
-  }
-  return true;
+bool WiFi_AP_Candidate::bssid_match(const uint8_t bssid_c[6]) const {
+  return bssid == bssid_c;
+}
+
+bool WiFi_AP_Candidate::bssid_match(const MAC_address& other) const {
+  return bssid == other;
 }
 
 String WiFi_AP_Candidate::toString(const String& separator) const {
@@ -159,7 +125,7 @@ String WiFi_AP_Candidate::toString(const String& separator) const {
     result += F("#Hidden#");
   }
   result += separator;
-  result += formatMAC(bssid);
+  result += bssid.toString();
   result += separator;
   result += F("Ch:");
   result += channel;

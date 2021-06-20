@@ -350,7 +350,6 @@ bool CPlugin_005(CPlugin::Function function, struct EventStruct *event, String& 
               m3 = MQTTpublish(event->ControllerIndex, event->TaskIndex, iot_update_topic.c_str(), iot_update_payload.c_str(), mqtt_retainFlag);
             }
           }
-
         }
         break;
       }

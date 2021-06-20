@@ -42,10 +42,6 @@ bool str2ip(const char *string,
 
 String  formatIP(const IPAddress& ip);
 
-void formatMAC(const uint8_t * mac, char (& strMAC)[20]);
-
-String formatMAC(const uint8_t *mac);
-
 
 /********************************************************************************************\
    Handling HEX strings
@@ -62,7 +58,7 @@ unsigned long hexToUL(const String& input_c,
                       size_t        nrHexDecimals);
 
 String formatToHex(unsigned long value,
-                   const String& prefix);
+                   const __FlashStringHelper * prefix);
 
 String formatToHex(unsigned long value);
 
@@ -78,7 +74,7 @@ String formatToHex_decimal(unsigned long value);
 String formatToHex_decimal(unsigned long value,
                            unsigned long factor);
 
-String boolToString(bool value);
+const __FlashStringHelper * boolToString(bool value);
 
 /*********************************************************************************************\
    Typical string replace functions.
@@ -129,6 +125,12 @@ String wrapIfContains(const String& value,
 /*********************************************************************************************\
    Format an object value pair for use in JSON.
 \*********************************************************************************************/
+String to_json_object_value(const __FlashStringHelper * object,
+                            const __FlashStringHelper * value);
+
+String to_json_object_value(const __FlashStringHelper * object,
+                            const String& value);
+
 String to_json_object_value(const String& object,
                             const String& value);
 
@@ -146,6 +148,10 @@ bool   isQuoteChar(char c);
 bool   isParameterSeparatorChar(char c);
 
 String stripQuotes(const String& text);
+
+bool   safe_strncpy(char         *dest,
+                    const __FlashStringHelper * source,
+                    size_t        max_size);
 
 bool   safe_strncpy(char         *dest,
                     const String& source,
@@ -186,7 +192,7 @@ String tolerantParseStringKeepCase(const String& string,
 
 // escapes special characters in strings for use in html-forms
 bool   htmlEscapeChar(char    c,
-                      String& escaped);
+                      String& esc);
 
 void   htmlEscape(String& html,
                   char    c);
@@ -196,6 +202,16 @@ void   htmlEscape(String& html);
 void   htmlStrongEscape(String& html);
 
 String URLEncode(const char *msg);
+
+void   repl(const __FlashStringHelper * key,
+            const String& val,
+            String      & s,
+            bool       useURLencode);
+
+void   repl(const __FlashStringHelper * key,
+            const char* val,
+            String      & s,
+            bool       useURLencode);
 
 void   repl(const String& key,
             const String& val,
@@ -226,18 +242,24 @@ void parseEventVariables(String            & s,
                          struct EventStruct *event,
                          bool             useURLencode);
 
-bool getConvertArgument(const String& marker,
+bool getConvertArgument(const __FlashStringHelper * marker,
                         const String& s,
                         float       & argument,
                         int         & startIndex,
                         int         & endIndex);
 
-bool getConvertArgument2(const String& marker,
+bool getConvertArgument2(const __FlashStringHelper * marker,
                          const String& s,
                          float       & arg1,
                          float       & arg2,
                          int         & startIndex,
                          int         & endIndex);
+
+bool getConvertArgumentString(const __FlashStringHelper * marker,
+                              const String& s,
+                              String      & argumentString,
+                              int         & startIndex,
+                              int         & endIndex);
 
 bool getConvertArgumentString(const String& marker,
                               const String& s,

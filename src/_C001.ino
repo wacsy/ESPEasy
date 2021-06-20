@@ -111,7 +111,7 @@ bool CPlugin_001(CPlugin::Function function, struct EventStruct *event, String& 
           url += mapVccToDomoticz();
             # endif // if FEATURE_ADC_VCC
 
-          success = C001_DelayHandler->addToQueue(C001_queue_element(event->ControllerIndex, event->TaskIndex, url));
+          success = C001_DelayHandler->addToQueue(C001_queue_element(event->ControllerIndex, event->TaskIndex, std::move(url)));
           Scheduler.scheduleNextDelayQueue(ESPEasy_Scheduler::IntervalTimer_e::TIMER_C001_DELAY_QUEUE,
                                           C001_DelayHandler->getNextScheduleTime());
         }
@@ -152,7 +152,8 @@ bool do_process_c001_delay_queue(int controller_number, const C001_queue_element
   String request = create_http_request_auth(controller_number, element.controller_idx, ControllerSettings, F("GET"), element.txt);
 
 # ifndef BUILD_NO_DEBUG
-  addLog(LOG_LEVEL_DEBUG, element.txt);
+  if (loglevelActiveFor(LOG_LEVEL_DEBUG))
+    addLog(LOG_LEVEL_DEBUG, element.txt);
 # endif // ifndef BUILD_NO_DEBUG
   return send_via_http(controller_number, client, request, ControllerSettings.MustCheckReply);
 }

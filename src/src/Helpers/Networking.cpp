@@ -1,4 +1,4 @@
-#include "Networking.h"
+#include "../Helpers/Networking.h"
 
 #include "../../ESPEasy_common.h"
 #include "../Commands/InternalCommands.h"
@@ -18,6 +18,7 @@
 #include "../Helpers/Network.h"
 #include "../Helpers/Numerical.h"
 #include "../Helpers/StringConverter.h"
+#include "../Helpers/StringProvider.h"
 
 #include <IPAddress.h>
 
@@ -238,11 +239,11 @@ void checkUDP()
                 }
                 byte unit = packetBuffer[12];
 #ifndef BUILD_NO_DEBUG
-                byte mac[6];
+                MAC_address mac;
                 byte ip[4];
 
                 for (byte x = 0; x < 6; x++) {
-                  mac[x] = packetBuffer[x + 2];
+                  mac.mac[x] = packetBuffer[x + 2];
                 }
 
                 for (byte x = 0; x < 4; x++) {
@@ -278,10 +279,13 @@ void checkUDP()
 #ifndef BUILD_NO_DEBUG
 
                 if (loglevelActiveFor(LOG_LEVEL_DEBUG_MORE)) {
-                  char macaddress[20];
-                  formatMAC(mac, macaddress);
-                  char log[80] = { 0 };
-                  sprintf_P(log, PSTR("UDP  : %s,%s,%u"), macaddress, formatIP(ip).c_str(), unit);
+                  String log;
+                  log += F("UDP  : ");
+                  log += mac.toString();
+                  log += ',';
+                  log += formatIP(ip);
+                  log += ',';
+                  log += unit;
                   addLog(LOG_LEVEL_DEBUG_MORE, log);
                 }
 #endif // ifndef BUILD_NO_DEBUG
@@ -349,7 +353,7 @@ String formatUnitToIPAddress(byte unit, byte formatCode) {
     switch (formatCode) {
       case 1:                  // Return empty string
       {
-        return F("");
+        return EMPTY_STRING;
       }
       case 2: // Return "0"
       {
@@ -476,21 +480,22 @@ void sendSysInfoUDP(byte repeats)
 
   for (byte counter = 0; counter < repeats; counter++)
   {
-    uint8_t  mac[]   = { 0, 0, 0, 0, 0, 0 };
-    uint8_t *macread = NetworkMacAddressAsBytes(mac);
-
     byte data[80] = { 0 };
     data[0] = 255;
     data[1] = 1;
 
-    for (byte x = 0; x < 6; x++) {
-      data[x + 2] = macread[x];
+    {
+      const MAC_address macread = NetworkMacAddress();
+      for (byte x = 0; x < 6; x++) {
+        data[x + 2] = macread.mac[x];
+      }
     }
 
-    IPAddress ip = NetworkLocalIP();
-
-    for (byte x = 0; x < 4; x++) {
-      data[x + 8] = ip[x];
+    {
+      const IPAddress ip = NetworkLocalIP();
+      for (byte x = 0; x < 4; x++) {
+        data[x + 8] = ip[x];
+      }
     }
     data[12] = Settings.Unit;
     data[13] =  lowByte(Settings.Build);
@@ -578,7 +583,7 @@ void SSDP_schema(WiFiClient& client) {
   ssdp_schema += F("</serialNumber>"
                    "<modelName>ESP Easy</modelName>"
                    "<modelNumber>");
-  ssdp_schema += F(BUILD_GIT);
+  ssdp_schema += getValue(LabelType::GIT_BUILD);
   ssdp_schema += F("</modelNumber>"
                    "<modelURL>http://www.letscontrolit.com</modelURL>"
                    "<manufacturer>http://www.letscontrolit.com</manufacturer>"
@@ -1165,7 +1170,7 @@ String splitURL(const String& fullURL, String& host, uint16_t& port, String& fil
 bool downloadFile(const String& url, String file_save) {
   String error;
 
-  return downloadFile(url, file_save, "", "", error);
+  return downloadFile(url, file_save, EMPTY_STRING, EMPTY_STRING, error);
 }
 
 bool downloadFile(const String& url, String file_save, const String& user, const String& pass, String& error) {
@@ -1173,9 +1178,9 @@ bool downloadFile(const String& url, String file_save, const String& user, const
   uint16_t port;
   String   uri = splitURL(url, host, port, file);
 
-  if (file_save.length() == 0) {
+  if (file_save.isEmpty()) {
     file_save = file;
-  } else if ((file.length() == 0) && uri.endsWith("/")) {
+  } else if ((file.isEmpty()) && uri.endsWith("/")) {
     // file = file_save;
     uri += file_save;
   }
@@ -1191,7 +1196,7 @@ bool downloadFile(const String& url, String file_save, const String& user, const
     addLog(LOG_LEVEL_ERROR, log);
   }
 
-  if (file_save.length() == 0) {
+  if (file_save.isEmpty()) {
     error = F("Empty filename");
     addLog(LOG_LEVEL_ERROR, error);
     return false;

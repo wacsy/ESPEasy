@@ -3,6 +3,9 @@
 
 #include "../../ESPEasy_common.h"
 
+
+
+
 struct LabelType;
 
 // enum LabelType::Enum : short;
@@ -48,6 +51,7 @@ struct LabelType {
     BOOT_TYPE,               // Cold boot
     BOOT_COUNT,              // 0
     RESET_REASON,            // Software/System restart
+    DEEP_SLEEP_ALTERNATIVE_CALL,
     LAST_TASK_BEFORE_REBOOT, // Last scheduled task.
     SW_WD_COUNT,
 
@@ -147,6 +151,13 @@ struct LabelType {
     TIMEZONE_OFFSET,
     LATITUDE,
     LONGITUDE,
+    SUNRISE_S,
+    SUNSET_S,
+    SUNRISE_M,
+    SUNSET_M,
+
+
+    MAX_LABEL  // Keep as last
   };
 };
 
@@ -159,7 +170,7 @@ String getEthLinkSpeedState();
 
 String getInternalLabel(LabelType::Enum label,
                         char            replaceSpace = '_');
-String getLabel(LabelType::Enum label);
+const __FlashStringHelper * getLabel(LabelType::Enum label);
 String getValue(LabelType::Enum label);
 String getExtendedValue(LabelType::Enum label);
 

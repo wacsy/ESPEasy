@@ -291,7 +291,7 @@ bool MQTTConnect(controllerIndex_t controller_idx)
 String getMQTTclientID(const ControllerSettingsStruct& ControllerSettings) {
   String clientid = ControllerSettings.ClientID;
 
-  if (clientid.length() == 0) {
+  if (clientid.isEmpty()) {
     // Try to generate some default
     clientid = F(CONTROLLER_DEFAULT_CLIENTID);
   }
@@ -392,12 +392,12 @@ String getLWT_topic(const ControllerSettingsStruct& ControllerSettings) {
   if (ControllerSettings.mqtt_sendLWT()) {
     LWTTopic = ControllerSettings.MQTTLwtTopic;
 
-    if (LWTTopic.length() == 0)
+    if (LWTTopic.isEmpty())
     {
       LWTTopic  = ControllerSettings.Subscribe;
       LWTTopic += F("/LWT");
     }
-    LWTTopic.replace(String(F("/#")), String(F("/status")));
+    LWTTopic.replace(F("/#"), F("/status"));
     parseSystemVariables(LWTTopic, false);
   }
   return LWTTopic;
@@ -409,7 +409,7 @@ String getLWT_messageConnect(const ControllerSettingsStruct& ControllerSettings)
   if (ControllerSettings.mqtt_sendLWT()) {
     LWTMessageConnect = ControllerSettings.LWTMessageConnect;
 
-    if (LWTMessageConnect.length() == 0) {
+    if (LWTMessageConnect.isEmpty()) {
       LWTMessageConnect = F(DEFAULT_MQTT_LWT_CONNECT_MESSAGE);
     }
     parseSystemVariables(LWTMessageConnect, false);
@@ -423,7 +423,7 @@ String getLWT_messageDisconnect(const ControllerSettingsStruct& ControllerSettin
   if (ControllerSettings.mqtt_sendLWT()) {
     LWTMessageDisconnect = ControllerSettings.LWTMessageDisconnect;
 
-    if (LWTMessageDisconnect.length() == 0) {
+    if (LWTMessageDisconnect.isEmpty()) {
       LWTMessageDisconnect = F(DEFAULT_MQTT_LWT_DISCONNECT_MESSAGE);
     }
     parseSystemVariables(LWTMessageDisconnect, false);
@@ -460,7 +460,7 @@ bool SourceNeedsStatusUpdate(EventValueSource::Enum eventSource)
 
 void SendStatus(struct EventStruct *event, const String& status)
 {
-  if (status.length() == 0) { return; }
+  if (status.isEmpty()) { return; }
 
   switch (event->Source)
   {
@@ -516,6 +516,21 @@ bool MQTTpublish(controllerIndex_t controller_idx, taskIndex_t taskIndex, const 
   scheduleNextMQTTdelayQueue();
   return success;
 }
+
+bool MQTTpublish(controllerIndex_t controller_idx, taskIndex_t taskIndex,  String&& topic, String&& payload, bool retained) {
+  if (MQTTDelayHandler == nullptr) {
+    return false;
+  }
+
+  if (MQTT_queueFull(controller_idx)) {
+    return false;
+  }
+  const bool success = MQTTDelayHandler->addToQueue(MQTT_queue_element(controller_idx, taskIndex, std::move(topic), std::move(payload), retained));
+
+  scheduleNextMQTTdelayQueue();
+  return success;
+}
+
 
 /*********************************************************************************************\
 * Send status info back to channel where request came from
