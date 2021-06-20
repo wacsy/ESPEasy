@@ -189,7 +189,7 @@ bool GPIO_MCP_Write(int Par1, byte Par2)
   }
   return(success);
 
-/*
+  /*
   byte portvalue = 0;
   // turn this port into output, first read current config
   Wire.beginTransmission(address);

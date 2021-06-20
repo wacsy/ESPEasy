@@ -317,7 +317,7 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
       success = true;
       break;
     }
-/*
+    /*
     case PLUGIN_REQUEST:
     {
       // String device = parseString(string, 1);
@@ -336,7 +336,7 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
       }
       break;
     }
-*/
+    */
     /*
           case PLUGIN_UNCONDITIONAL_POLL:
             {
@@ -363,7 +363,7 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
             }
 
      */
-/*
+    /*
     case PLUGIN_MONITOR:
     {
       // port monitoring, generates an event by rule command 'monitor,gpio,port#'
@@ -389,7 +389,7 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
 
       break;
     }
-*/
+    */
     case PLUGIN_TEN_PER_SECOND:
     {
       /**************************************************************************\
@@ -422,15 +422,15 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
 
         const int8_t state = GPIO_Read_Switch_State(CONFIG_PIN1,currentStatus.mode);
 
-//        if (currentStatus.mode != PIN_MODE_OUTPUT )
-//        {
+        //if (currentStatus.mode != PIN_MODE_OUTPUT )
+        //{
           // CASE 1: using SafeButton, so wait 1 more 100ms cycle to acknowledge the status change
           // QUESTION: MAYBE IT'S BETTER TO WAIT 2 CYCLES??
           if (round(PCONFIG_FLOAT(3)) && (state != currentStatus.state) && (PCONFIG_LONG(3) == 0))
           {
-  #ifndef BUILD_NO_DEBUG
+            #ifndef BUILD_NO_DEBUG
             addLog(LOG_LEVEL_DEBUG, F("SW  : 1st click"));
-  #endif // ifndef BUILD_NO_DEBUG
+            #endif // ifndef BUILD_NO_DEBUG
             PCONFIG_LONG(3) = 1;
           }
 
@@ -459,15 +459,15 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
               }
 
               // just to simplify the reading of the code
-    #define COUNTER PCONFIG(7)
-    #define DC PCONFIG(4)
+              #define COUNTER PCONFIG(7)
+              #define DC PCONFIG(4)
 
               // check settings for doubleclick according to the settings
               if ((COUNTER != 0) || ((COUNTER == 0) && ((DC == 3) || ((DC == 1) && (state == 0)) || ((DC == 2) && (state == 1))))) {
                 PCONFIG(7)++;
               }
-    #undef DC
-    #undef COUNTER
+              #undef DC
+              #undef COUNTER
 
               currentStatus.state = state;
               const boolean currentOutputState = currentStatus.output;
@@ -549,14 +549,14 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
           }
 
           // just to simplify the reading of the code
-    #define LP PCONFIG(5)
-    #define FIRED PCONFIG(6)
+          #define LP PCONFIG(5)
+          #define FIRED PCONFIG(6)
 
           // CASE 3: status unchanged. Checking longpress:
           // Check if LP is enabled and if LP has not fired yet
           else if (!FIRED && ((LP == 3) || ((LP == 1) && (state == 0)) || ((LP == 2) && (state == 1)))) {
-    #undef LP
-    #undef FIRED
+            #undef LP
+            #undef FIRED
 
             /**************************************************************************\
                20181009 - @giig1967g: new longpress logic is:
@@ -666,7 +666,7 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
           }
 
           //OUTPUT PIN
-/*
+          /*
         }
 
         else if ((state != currentStatus.state) || currentStatus.forceEvent) {
@@ -686,7 +686,7 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
           savePortStatus(key, currentStatus);
 
         }
-*/
+        */
       }
       success = true;
       break;
@@ -727,7 +727,7 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
         log = String(F("inputswitchstate is deprecated")) + string;
         addLog(LOG_LEVEL_ERROR, log);
 
-/*        portStatusStruct tempStatus;
+        /* portStatusStruct tempStatus;
         const uint32_t key = createKey(PLUGIN_ID_001, Settings.TaskDevicePin1[event->Par1]);
 
         // WARNING: operator [] creates an entry in the map if key does not exist
@@ -755,7 +755,7 @@ boolean Plugin_001(byte function, struct EventStruct *event, String& string)
 
       tempStatus.state = event->Par2;
       tempStatus.mode  = PIN_MODE_OUTPUT;
-//sp    (tempStatus.monitor) ? tempStatus.forceMonitor = 1 : tempStatus.forceMonitor = 0;
+      //sp    (tempStatus.monitor) ? tempStatus.forceMonitor = 1 : tempStatus.forceMonitor = 0;
       tempStatus.forceMonitor = 1; //added to send event for longpulse command
       savePortStatus(key, tempStatus);
       break;
