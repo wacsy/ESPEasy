@@ -1,6 +1,7 @@
 #include "src/Helpers/_CPlugin_Helper.h"
 #ifdef USES_C005
 
+#include <ArduinoJson.h>
 #include "src/Commands/InternalCommands.h"
 #include "src/Globals/EventQueue.h"
 #include "src/Globals/ExtraTaskSettings.h"

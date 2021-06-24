@@ -1,6 +1,7 @@
 
 // #include section
 #include "_Plugin_Helper.h"
+#include "src/ESPEasyCore/ESPEasyGPIO.h"
 #ifdef USES_P253
 
 
@@ -282,7 +283,7 @@ boolean Plugin_253(byte function, struct EventStruct *event, String& string)
         const uint32_t   key = createKey(PLUGIN_ID_001, CONFIG_PIN1);
         // WARNING operator [],creates an entry in map if key doesn't exist:
         portStatusStruct currentStatus = globalMapPortStatus[key];
-
+        const String monitorEventString = F("GPIO");
         const int8_t state = GPIO_Read_Switch_State(CONFIG_PIN1,currentStatus.mode);
 
         if ((state != currentStatus.state) || currentStatus.forceEvent) {
